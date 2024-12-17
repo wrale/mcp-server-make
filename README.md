@@ -1,4 +1,4 @@
-# mcp-server-make MCP server
+# mcp-server-make
 
 MCP Server for GNU Make
 
