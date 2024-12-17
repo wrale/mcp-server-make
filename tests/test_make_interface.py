@@ -1,6 +1,7 @@
 """Test the core Make interface functionality."""
 
 import os
+from pathlib import Path
 import pathlib
 import textwrap
 import asyncio
@@ -18,7 +19,7 @@ from mcp_server_make.make import (
     validate_makefile_syntax,
     parse_makefile_targets,
 )
-from mcp_server_make.server import server
+from mcp_server_make.server import MakeServer
 
 
 class MockStream:
@@ -103,6 +104,13 @@ def valid_makefile(tmp_path: pathlib.Path) -> Generator[pathlib.Path, None, None
 
 
 @pytest.fixture
+def make_server(valid_makefile: pathlib.Path) -> MakeServer:
+    """Create an MCP server instance with the valid Makefile."""
+    makefile_dir = os.path.dirname(valid_makefile)
+    return MakeServer(makefile_dir=makefile_dir)
+
+
+@pytest.fixture
 def invalid_makefile(tmp_path: pathlib.Path) -> Generator[pathlib.Path, None, None]:
     """Create an invalid test Makefile."""
     content = textwrap.dedent("""
@@ -121,19 +129,15 @@ def invalid_makefile(tmp_path: pathlib.Path) -> Generator[pathlib.Path, None, No
 def test_get_validated_path_inside_project(tmp_path: pathlib.Path) -> None:
     """Test path validation accepts paths within project boundaries."""
     test_path = tmp_path / "test.txt"
-    os.chdir(str(tmp_path))
-
-    result = get_validated_path(str(test_path))
+    result = get_validated_path(tmp_path, str(test_path))
     assert result.is_absolute()
     assert str(result).startswith(str(tmp_path))
 
 
 def test_get_validated_path_outside_project(tmp_path: pathlib.Path) -> None:
     """Test path validation rejects paths outside project boundaries."""
-    os.chdir(str(tmp_path))
-
     with pytest.raises(SecurityError, match="outside project boundary"):
-        get_validated_path("/etc/passwd")
+        get_validated_path(tmp_path, "/etc/passwd")
 
 
 # Makefile reading and validation tests
@@ -169,7 +173,8 @@ def test_validate_makefile_syntax_invalid(invalid_makefile: pathlib.Path) -> Non
 @pytest.mark.asyncio
 async def test_parse_makefile_targets(valid_makefile: pathlib.Path) -> None:
     """Test extraction of Make targets from valid Makefile."""
-    targets = await parse_makefile_targets()
+    makefile_dir = os.path.dirname(valid_makefile)
+    targets = await parse_makefile_targets(Path(makefile_dir))
 
     target_names = {t["name"] for t in targets}
     assert "test" in target_names
@@ -183,10 +188,11 @@ async def test_parse_makefile_targets(valid_makefile: pathlib.Path) -> None:
 @pytest.mark.asyncio
 async def test_list_resources_valid_makefile(
     mock_session: ServerSession,
+    make_server: MakeServer,
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test MCP resource listing with valid Makefile."""
-    resources = await server.list_resources()
+    resources = await make_server.list_resources()
 
     # Convert AnyUrl to strings for comparison
     resource_uris = {str(r.uri).replace("localhost/", "") for r in resources}
@@ -197,10 +203,11 @@ async def test_list_resources_valid_makefile(
 @pytest.mark.asyncio
 async def test_read_resource_makefile(
     mock_session: ServerSession,
+    make_server: MakeServer,
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test reading Makefile content through MCP resource interface."""
-    content = await server.read_resource("make://current/makefile")
+    content = await make_server.read_resource("make://current/makefile")
     assert "test:" in content
     assert "build:" in content
 
@@ -208,10 +215,11 @@ async def test_read_resource_makefile(
 @pytest.mark.asyncio
 async def test_read_resource_targets(
     mock_session: ServerSession,
+    make_server: MakeServer,
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test reading Make targets through MCP resource interface."""
-    content = await server.read_resource("make://targets")
+    content = await make_server.read_resource("make://targets")
     assert "test" in content
     assert "build" in content
 
@@ -219,8 +227,9 @@ async def test_read_resource_targets(
 @pytest.mark.asyncio
 async def test_read_resource_invalid_uri(
     mock_session: ServerSession,
+    make_server: MakeServer,
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test error handling for invalid resource URIs."""
     with pytest.raises(ValueError, match="Unsupported URI scheme"):
-        await server.read_resource("invalid://scheme")
+        await make_server.read_resource("invalid://scheme")

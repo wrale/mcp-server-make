@@ -54,12 +54,21 @@ Add configuration:
 {
   "mcpServers": {
     "mcp-server-make": {
-      "command": "uvx",
-      "args": ["mcp-server-make"]
+      "command": "uv",
+      "args": [
+        "--directory", 
+        "/path/to/server",
+        "run",
+        "mcp-server-make", 
+        "--makefile-dir", "/path/to/project"
+      ]
     }
   }
 }
 ```
+
+- `--directory`: Path to the installed mcp-server-make package
+- `--makefile-dir`: Directory containing the Makefile to manage
 
 Restart Claude Desktop to activate the Make server.
 
@@ -109,7 +118,7 @@ make check
 
 Test the server using the MCP Inspector:
 ```bash
-npx @modelcontextprotocol/inspector uv --directory /path/to/mcp-server-make run mcp-server-make
+npx @modelcontextprotocol/inspector uv --directory /path/to/mcp-server-make run mcp-server-make --makefile-dir /path/to/project
 ```
 
 ## Security Features
@@ -177,3 +186,4 @@ MIT - See LICENSE file for details.
 - Basic Makefile access and target execution
 - Core security controls
 - Claude Desktop integration
+- Configurable Makefile directory

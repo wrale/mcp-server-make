@@ -58,14 +58,17 @@ def validate_makefile_syntax(content: str) -> bool:
         raise MakefileError(f"Makefile validation failed: {str(e)}")
 
 
-async def parse_makefile_targets() -> List[dict]:
+async def parse_makefile_targets(makefile_dir: Path) -> List[dict]:
     """
     Parse Makefile to extract targets and their metadata.
+
+    Args:
+        makefile_dir: Directory containing the Makefile to parse
 
     Returns:
         List of target dictionaries with metadata
     """
-    path = get_validated_path() / "Makefile"
+    path = get_validated_path(makefile_dir, "Makefile")
     content = await read_makefile(path)
 
     targets = []

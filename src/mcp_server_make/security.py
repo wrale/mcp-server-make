@@ -6,12 +6,13 @@ from typing import Optional
 from .exceptions import SecurityError
 
 
-def get_validated_path(path: Optional[str] = None) -> Path:
+def get_validated_path(base_dir: Path, subpath: Optional[str] = None) -> Path:
     """
     Validate and resolve a path within project boundaries.
 
     Args:
-        path: Optional path to validate. Uses current directory if None.
+        base_dir: Base directory containing Makefile (project root)
+        subpath: Optional path relative to base_dir
 
     Returns:
         Resolved Path object
@@ -20,14 +21,21 @@ def get_validated_path(path: Optional[str] = None) -> Path:
         SecurityError: If path validation fails
     """
     try:
-        base_path = Path.cwd() if path is None else Path(path)
-        resolved = base_path.resolve()
+        # Resolve the base directory
+        base = base_dir.resolve()
 
-        # Ensure path is within current directory tree
-        if not str(resolved).startswith(str(Path.cwd())):
+        # If no subpath, return base
+        if subpath is None:
+            return base
+
+        # Resolve requested path relative to base
+        requested = (base / subpath).resolve()
+
+        # Ensure path is within base directory tree
+        if not str(requested).startswith(str(base)):
             raise SecurityError("Path access denied: outside project boundary")
 
-        return resolved
+        return requested
     except Exception as e:
         raise SecurityError(f"Invalid path: {str(e)}")
 
