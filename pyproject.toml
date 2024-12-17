@@ -28,10 +28,10 @@ name = "Joshua M. Dotson"
 email = "contact@jmdots.com"
 
 [project.urls]
-Homepage = "https://github.com/modelcontextprotocol/mcp-server-make"
-Documentation = "https://github.com/modelcontextprotocol/mcp-server-make#readme"
-Repository = "https://github.com/modelcontextprotocol/mcp-server-make.git"
-Changelog = "https://github.com/modelcontextprotocol/mcp-server-make/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/wrale/mcp-server-make"
+Documentation = "https://github.com/wrale/mcp-server-make#readme"
+Repository = "https://github.com/wrale/mcp-server-make.git"
+Changelog = "https://github.com/wrale/mcp-server-make/blob/main/CHANGELOG.md"
 
 [project.scripts]
 mcp-server-make = "mcp_server_make:main"
