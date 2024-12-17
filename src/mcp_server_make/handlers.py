@@ -15,7 +15,7 @@ from .security import get_validated_path
 
 def create_make_url(path: str) -> AnyUrl:
     """
-    Create a properly formatted MCP URI using pydantic's AnyUrl.
+    Create a properly formatted MCP URI for the Make server.
 
     Args:
         path: The path portion of the URI
@@ -25,7 +25,8 @@ def create_make_url(path: str) -> AnyUrl:
     """
     # Ensure slashes are preserved but other special chars are encoded
     safe_path = quote(path.strip("/"), safe="/")
-    return AnyUrl(f"make://{safe_path}", scheme="make")
+    make_url = f"make://{safe_path}"
+    return AnyUrl.build(scheme="make", host=None, path=safe_path)
 
 
 async def handle_list_resources() -> list[types.Resource]:
@@ -73,23 +74,29 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 
     Returns:
         Resource content
+
+    Raises:
+        ValueError: If the URI scheme is not 'make' or the path is invalid
     """
     from .make import read_makefile, validate_makefile_syntax
 
     if uri.scheme != "make":
         raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
+    if not uri.path:
+        raise ValueError("URI path is required")
+
     # Safe path comparison since AnyUrl normalizes paths
-    path = uri.path.lower().strip("/")
+    norm_path = uri.path.lower().strip("/")
 
     try:
-        if path == "current/makefile":
+        if norm_path == "current/makefile":
             file_path = get_validated_path() / "Makefile"
             content = await read_makefile(file_path)
             validate_makefile_syntax(content)
             return content
 
-        elif path == "targets":
+        elif norm_path == "targets":
             targets = await parse_makefile_targets()
             return str(targets)  # Basic string representation for now
 
