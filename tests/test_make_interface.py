@@ -7,6 +7,7 @@ of MCP server components.
 """
 
 import os
+import uuid
 import pathlib
 import textwrap
 import asyncio
@@ -16,6 +17,7 @@ import pytest
 import pytest_asyncio
 from mcp.server import RequestContext, ServerSession
 from mcp.server.models import InitializationOptions
+from mcp.shared.meta import RequestMeta  # Added import for request metadata
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
 from mcp_server_make.security import get_validated_path
@@ -25,6 +27,21 @@ from mcp_server_make.make import (
     parse_makefile_targets,
 )
 from mcp_server_make.server import server, request_context
+
+
+def generate_request_meta() -> RequestMeta:
+    """Generate test request metadata.
+
+    Returns consistent metadata for test requests while simulating
+    actual MCP request properties. This keeps tests deterministic
+    while matching protocol requirements.
+
+    Returns:
+        Populated RequestMeta instance for testing
+    """
+    return RequestMeta(
+        client_name="test-client", client_version="0.1.0", protocol_version="1.0.0"
+    )
 
 
 # Testing infrastructure classes
@@ -154,7 +171,12 @@ async def request_ctx(
     Yields:
         Configured RequestContext instance
     """
-    ctx = RequestContext[ServerSession](session=mock_session)
+    # Create RequestContext with required parameters
+    ctx = RequestContext(
+        session=mock_session,
+        request_id=str(uuid.uuid4()),  # Generate unique request ID
+        meta=generate_request_meta(),  # Add required metadata
+    )
 
     # Set context and ensure cleanup
     token = request_context.set(ctx)
