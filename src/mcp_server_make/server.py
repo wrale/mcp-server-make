@@ -1,6 +1,7 @@
 """MCP Server for GNU Make - Core functionality."""
 
 import asyncio
+from pydantic import AnyUrl
 
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
@@ -8,21 +9,36 @@ from mcp.server.models import InitializationOptions
 
 from . import handlers
 
+
 # Initialize the MCP server instance
 server = Server("mcp-server-make")
 
 
 # Register handlers correctly using decorators
 @server.list_resources()
-async def list_resources():
+async def list_resources() -> list:
     """Handle list resources request."""
-    return await handlers.handle_list_resources()
+    try:
+        return await handlers.handle_list_resources()
+    except Exception as e:
+        await server.request_context.session.send_log_message(
+            level="error",
+            data=f"Error listing resources: {str(e)}",
+        )
+        raise
 
 
 @server.read_resource()
-async def read_resource(uri):
+async def read_resource(self, uri: AnyUrl) -> str:
     """Handle read resource request."""
-    return await handlers.handle_read_resource(uri)
+    try:
+        return await handlers.handle_read_resource(uri)
+    except Exception as e:
+        await server.request_context.session.send_log_message(
+            level="error",
+            data=f"Error reading resource {uri}: {str(e)}",
+        )
+        raise
 
 
 @server.list_tools()
