@@ -1,10 +1,12 @@
 """MCP Server for GNU Make - Core functionality."""
 
 import asyncio
+from typing import List
 from pydantic import AnyUrl
 
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
+import mcp.types as types
 from mcp.server.models import InitializationOptions
 
 from . import handlers
@@ -15,8 +17,8 @@ server = Server("mcp-server-make")
 
 
 # Register handlers correctly using decorators
-@server.list_resources()
-async def list_resources() -> list:
+@server.list_resources
+async def list_resources() -> List[types.Resource]:
     """Handle list resources request."""
     try:
         return await handlers.handle_list_resources()
@@ -28,8 +30,8 @@ async def list_resources() -> list:
         raise
 
 
-@server.read_resource()
-async def read_resource(self, uri: AnyUrl) -> str:
+@server.read_resource
+async def read_resource(uri: AnyUrl) -> str:
     """Handle read resource request."""
     try:
         return await handlers.handle_read_resource(uri)
@@ -41,13 +43,13 @@ async def read_resource(self, uri: AnyUrl) -> str:
         raise
 
 
-@server.list_tools()
+@server.list_tools
 async def list_tools():
     """Handle list tools request."""
     return await handlers.handle_list_tools()
 
 
-@server.call_tool()
+@server.call_tool
 async def call_tool(name: str, arguments: dict | None):
     """Handle tool execution request."""
     return await handlers.handle_call_tool(name, arguments)
