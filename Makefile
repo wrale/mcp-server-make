@@ -10,7 +10,7 @@ PYTHON_VERSION = 3.12
 PYTHON = python$(PYTHON_VERSION)
 UV = uv
 PIP = $(UV) pip
-PYTEST = pytest
+PYTEST = $(VENV_BIN)/pytest
 RUFF = $(VENV_BIN)/ruff
 MYPY = $(VENV_BIN)/mypy
 
