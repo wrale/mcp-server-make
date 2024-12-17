@@ -99,8 +99,8 @@ class MockServerSession(ServerSession):
     def __init__(self) -> None:
         """Initialize mock session with test streams and options."""
         # Create mock IO streams for testing
-        read_stream = MockStream()
-        write_stream = MockStream()
+        self._read_stream = MockStream()
+        self._write_stream = MockStream()
 
         # Create minimal initialization options
         init_options = InitializationOptions(
@@ -110,7 +110,7 @@ class MockServerSession(ServerSession):
         )
 
         # Initialize base session
-        super().__init__(read_stream, write_stream, init_options)
+        super().__init__(self._read_stream, self._write_stream, init_options)
 
     async def send_log_message(self, level: str, data: str) -> None:
         """Mock log message handling.
@@ -135,8 +135,8 @@ async def mock_session() -> AsyncGenerator[ServerSession, None]:
     session = MockServerSession()
     yield session
     # Clean up mock streams
-    await session._read_stream.aclose()  # type: ignore
-    await session._write_stream.aclose()  # type: ignore
+    await session._read_stream.aclose()
+    await session._write_stream.aclose()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -154,7 +154,7 @@ async def request_ctx(
     Yields:
         Configured RequestContext instance
     """
-    ctx = RequestContext(session=mock_session, context=EmptyContext())
+    ctx = RequestContext[ServerSession](session=mock_session)
 
     # Set context and ensure cleanup
     token = request_context.set(ctx)
