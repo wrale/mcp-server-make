@@ -16,8 +16,10 @@ from typing import AsyncGenerator, Generator, Dict, Any
 import pytest
 import pytest_asyncio
 from mcp.server import RequestContext, ServerSession
-from mcp.server.models import InitializationOptions
-from mcp.shared.meta import RequestMeta  # Added import for request metadata
+from mcp.server.models import (
+    InitializationOptions,
+    RequestMetadata,  # Using server's metadata model
+)
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
 from mcp_server_make.security import get_validated_path
@@ -29,7 +31,7 @@ from mcp_server_make.make import (
 from mcp_server_make.server import server, request_context
 
 
-def generate_request_meta() -> RequestMeta:
+def generate_request_meta() -> RequestMetadata:
     """Generate test request metadata.
 
     Returns consistent metadata for test requests while simulating
@@ -37,10 +39,13 @@ def generate_request_meta() -> RequestMeta:
     while matching protocol requirements.
 
     Returns:
-        Populated RequestMeta instance for testing
+        Populated RequestMetadata instance for testing
     """
-    return RequestMeta(
-        client_name="test-client", client_version="0.1.0", protocol_version="1.0.0"
+    return RequestMetadata(
+        client_name="test-client",
+        client_version="0.1.0",
+        protocol_version="1.0",
+        capabilities={},  # Empty capabilities for testing
     )
 
 
