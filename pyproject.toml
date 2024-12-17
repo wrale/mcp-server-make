@@ -15,3 +15,12 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 mcp-server-make = "mcp_server_make:main"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.13",
+    "mypy>=1.8.0",
+    "pytest>=7.4.4",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.3",
+]
