@@ -2,6 +2,7 @@
 
 import asyncio
 from typing import Any, List
+from urllib.parse import urlparse
 
 from pydantic import AnyUrl
 from mcp.server import (
@@ -34,12 +35,22 @@ class MakeServer(Server):
 
         async def _read_resource(uri: AnyUrl | str) -> str:
             try:
-                # Convert string URIs to AnyUrl instances
+                # Handle invalid URI scheme early
                 if isinstance(uri, str):
-                    uri = handlers.create_make_url(uri.removeprefix("make://"))
+                    parsed = urlparse(uri)
+                    if parsed.scheme != "make":
+                        raise ValueError(f"Unsupported URI scheme: {parsed.scheme}")
+                    # Only remove prefix if it's the make:// scheme
+                    uri = handlers.create_make_url(
+                        uri[7:] if uri.startswith("make://") else uri
+                    )
+
                 return await handlers.handle_read_resource(uri)
-            except Exception as e:
+            except ValueError as e:
+                # Preserve original error messages
                 raise ValueError(str(e))
+            except Exception as e:
+                raise ValueError(f"Failed to read resource: {str(e)}")
 
         async def _list_tools() -> List[types.Tool]:
             try:

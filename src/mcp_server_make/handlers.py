@@ -2,7 +2,7 @@
 
 import re
 from typing import List, Optional
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from pydantic import AnyUrl
 import mcp.types as types
@@ -30,6 +30,26 @@ def create_make_url(path: str) -> AnyUrl:
     return AnyUrl(f"make://{safe_path}")
 
 
+def normalize_uri_path(uri: AnyUrl) -> str:
+    """Normalize a URI path for consistent comparison.
+
+    Args:
+        uri: URI to normalize path from
+
+    Returns:
+        Normalized path string
+
+    Raises:
+        ValueError: If URI has no valid path
+    """
+    if not uri.path:
+        raise ValueError("URI must have a path component")
+
+    # Convert to string and normalize slashes
+    path = unquote(str(uri.path))
+    return "/".join(p for p in path.split("/") if p).lower()
+
+
 async def handle_list_resources() -> list[types.Resource]:
     """List available Make-related resources."""
     resources = []
@@ -40,7 +60,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if makefile_path.exists():
             resources.append(
                 types.Resource(
-                    uri=create_make_url("current/makefile"),
+                    uri=str(create_make_url("current/makefile")),  # Convert to string
                     name="Current Makefile",
                     description="Contents of the current Makefile",
                     mimeType="text/plain",
@@ -52,7 +72,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if targets:
             resources.append(
                 types.Resource(
-                    uri=create_make_url("targets"),
+                    uri=str(create_make_url("targets")),  # Convert to string
                     name="Make Targets",
                     description="List of available Make targets",
                     mimeType="application/json",
@@ -79,17 +99,15 @@ async def handle_read_resource(uri: AnyUrl) -> str:
     """
     from .make import read_makefile, validate_makefile_syntax
 
-    if uri.scheme != "make":
+    # Validate scheme before path normalization
+    if not uri.scheme or uri.scheme != "make":
         raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
-    # Ensure path exists and convert to string for safe handling
-    if not uri.path:
-        raise ValueError("URI must have a path component")
-    path_str = str(uri.path)
-
-    # Strip any extra slashes and host parts from path
-    norm_path = "/".join(p for p in path_str.split("/") if p)
-    norm_path = norm_path.lower()
+    # Normalize the path for consistent comparison
+    try:
+        norm_path = normalize_uri_path(uri)
+    except ValueError as e:
+        raise ValueError(str(e))
 
     try:
         if norm_path == "current/makefile":
