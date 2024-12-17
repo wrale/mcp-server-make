@@ -60,7 +60,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if makefile_path.exists():
             resources.append(
                 types.Resource(
-                    uri=str(create_make_url("current/makefile")),  # Convert to string
+                    uri=create_make_url("current/makefile"),  # Pass AnyUrl directly
                     name="Current Makefile",
                     description="Contents of the current Makefile",
                     mimeType="text/plain",
@@ -72,7 +72,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if targets:
             resources.append(
                 types.Resource(
-                    uri=str(create_make_url("targets")),  # Convert to string
+                    uri=create_make_url("targets"),  # Pass AnyUrl directly
                     name="Make Targets",
                     description="List of available Make targets",
                     mimeType="application/json",
