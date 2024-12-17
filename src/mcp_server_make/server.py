@@ -80,14 +80,23 @@ class MakeServer(Server):
 
         Returns:
             Result from the executed coroutine
+
+        Note:
+            Error logging happens inside this context to ensure request_context
+            availability.
         """
-        # Create a new context with our request context
         ctx = contextvars.copy_context()
         token = ctx.run(request_context.set, context)
         try:
-            # Create and run a task with proper coroutine typing
-            coro = func(*args, **kwargs)
-            return await asyncio.create_task(coro, name=f"mcp_make_{func.__name__}")
+            try:
+                coro = func(*args, **kwargs)
+                return await asyncio.create_task(coro, name=f"mcp_make_{func.__name__}")
+            except Exception as e:
+                # Log error while we still have context
+                await context.session.send_log_message(
+                    level="error", data=f"Error in {func.__name__}: {str(e)}"
+                )
+                raise
         finally:
             ctx.run(request_context.reset, token)
 
@@ -95,28 +104,14 @@ class MakeServer(Server):
         """Initialize the handler functions."""
 
         async def _list_resources() -> List[types.Resource]:
-            try:
-                return await self._with_context(
-                    self.request_context, handlers.handle_list_resources
-                )
-            except Exception as e:
-                await self.request_context.session.send_log_message(
-                    level="error",
-                    data=f"Error listing resources: {str(e)}",
-                )
-                raise
+            return await self._with_context(
+                self.request_context, handlers.handle_list_resources
+            )
 
         async def _read_resource(uri: AnyUrl) -> str:
-            try:
-                return await self._with_context(
-                    self.request_context, handlers.handle_read_resource, uri
-                )
-            except Exception as e:
-                await self.request_context.session.send_log_message(
-                    level="error",
-                    data=f"Error reading resource {uri}: {str(e)}",
-                )
-                raise
+            return await self._with_context(
+                self.request_context, handlers.handle_read_resource, uri
+            )
 
         async def _list_tools() -> List[types.Tool]:
             return await self._with_context(
