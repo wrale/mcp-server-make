@@ -6,15 +6,14 @@ import pytest
 import textwrap
 from typing import Generator
 
-from mcp_server_make.server import (
-    MakefileError,
-    SecurityError,
-    get_validated_path,
+from mcp_server_make.exceptions import MakefileError, SecurityError
+from mcp_server_make.security import get_validated_path
+from mcp_server_make.make import (
     read_makefile,
     validate_makefile_syntax,
     parse_makefile_targets,
-    server,
 )
+from mcp_server_make.server import server
 
 
 # Fixtures for test Makefiles
