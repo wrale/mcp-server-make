@@ -33,18 +33,18 @@ jobs:
         uv venv
         source .venv/bin/activate
         uv pip install -e ".[dev]"
-
-    - name: Install globally with uvx
+        
+    - name: Install globally with uvx (system-wide)
       if: matrix.install-method == 'uvx'
       run: |
-        uvx install -e ".[dev]"
+        uvx install --system -e ".[dev]"
 
     - name: Run checks and tests
       run: |
-        ruff check .
-        ruff format . --check
-        mypy src/mcp_server_make
-        pytest tests
+        python -m ruff check .
+        python -m ruff format . --check
+        python -m mypy src/mcp_server_make
+        python -m pytest tests
       env:
         PYTHONPATH: ${{ github.workspace }}/src
 
@@ -58,15 +58,18 @@ jobs:
       with:
         python-version: "3.12"
     
-    - name: Build package
+    - name: Install uv
       run: |
         curl -LsSf https://astral.sh/uv/install.sh | sh
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Build package
+      run: |
         uv pip install build
         python -m build
 
     - name: Test uvx installation
       run: |
-        uvx install dist/*.whl
+        uvx install --system dist/*.whl
         # Verify the tool runs
         mcp-server-make --help
