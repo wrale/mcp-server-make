@@ -4,10 +4,9 @@ import os
 import pathlib
 import pytest
 import textwrap
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator, Generator, Dict, Any
 
 from mcp.server import RequestContext, ServerSession
-from mcp.server.test_utils import TestContext
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
 from mcp_server_make.security import get_validated_path
@@ -17,6 +16,14 @@ from mcp_server_make.make import (
     parse_makefile_targets,
 )
 from mcp_server_make.server import server, request_context
+
+
+class EmptyContext:
+    """Empty context for testing."""
+
+    def __init__(self) -> None:
+        """Initialize an empty context."""
+        self.data: Dict[str, Any] = {}
 
 
 class MockServerSession(ServerSession):
@@ -31,7 +38,7 @@ class MockServerSession(ServerSession):
 async def request_ctx() -> AsyncGenerator[RequestContext[ServerSession], None]:
     """Setup request context for tests."""
     session = MockServerSession()
-    ctx = RequestContext(session=session, context=TestContext())
+    ctx = RequestContext(session=session, context=EmptyContext())
 
     # Set context and handle cleanup
     token = request_context.set(ctx)
