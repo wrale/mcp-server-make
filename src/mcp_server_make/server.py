@@ -12,13 +12,20 @@ from mcp.server.models import InitializationOptions
 from . import handlers
 
 
-# Initialize the MCP server instance
-server = Server("mcp-server-make")
+# Initialize server instance
+server = Server(
+    "mcp-server-make",
+    capabilities={
+        "list_resources": True,
+        "read_resource": True,
+        "list_tools": True,
+        "call_tool": True,
+    },
+)
 
 
-# Register using simple attribute reference for decorators
-@server.list_resources  # No parentheses
-async def list_resources() -> List[types.Resource]:
+@server.on_list_resources
+async def handle_list_resources() -> List[types.Resource]:
     """Handle list resources request."""
     try:
         return await handlers.handle_list_resources()
@@ -30,8 +37,8 @@ async def list_resources() -> List[types.Resource]:
         raise
 
 
-@server.read_resource  # No parentheses
-async def read_resource(uri: AnyUrl) -> str:
+@server.on_read_resource
+async def handle_read_resource(uri: AnyUrl) -> str:
     """Handle read resource request."""
     try:
         return await handlers.handle_read_resource(uri)
@@ -43,14 +50,14 @@ async def read_resource(uri: AnyUrl) -> str:
         raise
 
 
-@server.list_tools  # No parentheses
-async def list_tools() -> List[types.Tool]:
+@server.on_list_tools
+async def handle_list_tools() -> List[types.Tool]:
     """Handle list tools request."""
     return await handlers.handle_list_tools()
 
 
-@server.call_tool  # No parentheses
-async def call_tool(
+@server.on_call_tool
+async def handle_call_tool(
     name: str, arguments: dict | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     """Handle tool execution request."""
