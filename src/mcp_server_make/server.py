@@ -2,7 +2,7 @@
 
 import asyncio
 import contextvars
-from typing import Any, Protocol, List, TypeVar, Callable, Awaitable
+from typing import Any, Protocol, List, TypeVar, Callable, Coroutine
 
 from pydantic import AnyUrl
 from mcp.server import (
@@ -63,32 +63,31 @@ class MakeServer(Server):
     async def _with_context(
         self,
         context: RequestContext[ServerSession],
-        func: Callable[..., Awaitable[T]],
+        func: Callable[..., Coroutine[Any, Any, T]],
         *args: Any,
         **kwargs: Any,
     ) -> T:
         """Run a handler function with the request context.
 
+        This helper ensures the request context is properly maintained across
+        async boundaries by using contextvars.copy_context().
+
         Args:
             context: The request context to use
-            func: Async function to execute within the context
+            func: Coroutine function to execute within the context
             *args: Positional arguments for the function
             **kwargs: Keyword arguments for the function
 
         Returns:
-            Result from the executed function
-
-        This helper ensures the request context is properly maintained across
-        async boundaries by using contextvars.copy_context().
+            Result from the executed coroutine
         """
         # Create a new context with our request context
         ctx = contextvars.copy_context()
         token = ctx.run(request_context.set, context)
         try:
-            # Execute the function in the new context
-            return await asyncio.create_task(
-                func(*args, **kwargs), name=f"mcp_make_{func.__name__}"
-            )
+            # Create and run a task with proper coroutine typing
+            coro = func(*args, **kwargs)
+            return await asyncio.create_task(coro, name=f"mcp_make_{func.__name__}")
         finally:
             ctx.run(request_context.reset, token)
 
