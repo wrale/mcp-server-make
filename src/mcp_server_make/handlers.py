@@ -2,7 +2,7 @@
 
 import re
 from typing import List, Optional
-from urllib.parse import quote, unquote
+from urllib.parse import quote, unquote, urlparse
 
 from pydantic import AnyUrl
 import mcp.types as types
@@ -22,12 +22,12 @@ def create_make_url(path: str) -> AnyUrl:
     Returns:
         AnyUrl for Make server (e.g. "make://current/makefile")
     """
-    # Remove any leading/trailing slashes and encode path
-    clean_path = path.strip("/")
-    safe_path = quote(clean_path, safe="/")
+    # Clean and normalize path
+    path = path.strip().strip("/")
 
-    # Build URI with proper host and path
-    return AnyUrl(f"make://{safe_path}")
+    # Use "localhost" as host to ensure path is preserved
+    uri = f"make://localhost/{quote(path, safe='/')}"
+    return AnyUrl(uri)
 
 
 def normalize_uri_path(uri: AnyUrl) -> str:
@@ -42,12 +42,13 @@ def normalize_uri_path(uri: AnyUrl) -> str:
     Raises:
         ValueError: If URI has no valid path
     """
-    if not uri.path:
+    parsed = urlparse(str(uri))
+    if not parsed.path or parsed.path == "/":
         raise ValueError("URI must have a path component")
 
-    # Convert to string and normalize slashes
-    path = unquote(str(uri.path))
-    return "/".join(p for p in path.split("/") if p).lower()
+    # Remove leading/trailing slashes and normalize
+    path = unquote(parsed.path.strip("/"))
+    return path.lower()
 
 
 async def handle_list_resources() -> list[types.Resource]:
@@ -60,7 +61,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if makefile_path.exists():
             resources.append(
                 types.Resource(
-                    uri=create_make_url("current/makefile"),  # Pass AnyUrl directly
+                    uri=create_make_url("current/makefile"),
                     name="Current Makefile",
                     description="Contents of the current Makefile",
                     mimeType="text/plain",
@@ -72,7 +73,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if targets:
             resources.append(
                 types.Resource(
-                    uri=create_make_url("targets"),  # Pass AnyUrl directly
+                    uri=create_make_url("targets"),
                     name="Make Targets",
                     description="List of available Make targets",
                     mimeType="application/json",
@@ -100,16 +101,14 @@ async def handle_read_resource(uri: AnyUrl) -> str:
     from .make import read_makefile, validate_makefile_syntax
 
     # Validate scheme before path normalization
-    if not uri.scheme or uri.scheme != "make":
-        raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
+    parsed = urlparse(str(uri))
+    if parsed.scheme != "make":
+        raise ValueError(f"Unsupported URI scheme: {parsed.scheme}")
 
-    # Normalize the path for consistent comparison
     try:
+        # Normalize the path for consistent comparison
         norm_path = normalize_uri_path(uri)
-    except ValueError as e:
-        raise ValueError(str(e))
 
-    try:
         if norm_path == "current/makefile":
             file_path = get_validated_path() / "Makefile"
             content = await read_makefile(file_path)

@@ -188,7 +188,8 @@ async def test_list_resources_valid_makefile(
     """Test MCP resource listing with valid Makefile."""
     resources = await server.list_resources()
 
-    resource_uris = {r.uri for r in resources}
+    # Convert AnyUrl to strings for comparison
+    resource_uris = {str(r.uri).replace("localhost/", "") for r in resources}
     assert "make://current/makefile" in resource_uris
     assert "make://targets" in resource_uris
 
