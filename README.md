@@ -1,7 +1,7 @@
 # mcp-server-make
 
-[![CI](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/ci.yml/badge.svg)](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/ci.yml)
-[![Release](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/release.yml/badge.svg)](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/release.yml)
+[![CI](https://github.com/wrale/mcp-server-make/actions/workflows/ci.yml/badge.svg)](https://github.com/wrale/mcp-server-make/actions/workflows/ci.yml)
+[![Release](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml/badge.svg)](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml)
 [![PyPI version](https://badge.fury.io/py/mcp-server-make.svg)](https://badge.fury.io/py/mcp-server-make)
 
 MCP Server for GNU Make - providing controlled and secure access to Make systems from LLMs.
@@ -103,7 +103,7 @@ Show me the current Makefile content.
 ### Local Development Setup
 ```bash
 # Clone repository
-git clone https://github.com/modelcontextprotocol/mcp-server-make
+git clone https://github.com/wrale/mcp-server-make
 cd mcp-server-make
 
 # Create virtual environment
