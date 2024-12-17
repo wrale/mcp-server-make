@@ -12,20 +12,12 @@ from mcp.server.models import InitializationOptions
 from . import handlers
 
 
-# Initialize server instance
-server = Server(
-    "mcp-server-make",
-    capabilities={
-        "list_resources": True,
-        "read_resource": True,
-        "list_tools": True,
-        "call_tool": True,
-    },
-)
+# Initialize server instance with name only
+server = Server("mcp-server-make")
 
 
-@server.on_list_resources
-async def handle_list_resources() -> List[types.Resource]:
+@server.list_resources
+async def list_resources() -> List[types.Resource]:
     """Handle list resources request."""
     try:
         return await handlers.handle_list_resources()
@@ -37,8 +29,8 @@ async def handle_list_resources() -> List[types.Resource]:
         raise
 
 
-@server.on_read_resource
-async def handle_read_resource(uri: AnyUrl) -> str:
+@server.read_resource
+async def read_resource(uri: AnyUrl) -> str:
     """Handle read resource request."""
     try:
         return await handlers.handle_read_resource(uri)
@@ -50,14 +42,14 @@ async def handle_read_resource(uri: AnyUrl) -> str:
         raise
 
 
-@server.on_list_tools
-async def handle_list_tools() -> List[types.Tool]:
+@server.list_tools
+async def list_tools() -> List[types.Tool]:
     """Handle list tools request."""
     return await handlers.handle_list_tools()
 
 
-@server.on_call_tool
-async def handle_call_tool(
+@server.call_tool
+async def call_tool(
     name: str, arguments: dict | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     """Handle tool execution request."""
@@ -67,18 +59,15 @@ async def handle_call_tool(
 async def main():
     """Run the server using stdin/stdout streams."""
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="mcp-server-make",
-                server_version="0.1.0",
-                capabilities=server.get_capabilities(
-                    notification_options=NotificationOptions(),
-                    experimental_capabilities={},
-                ),
+        init_options = InitializationOptions(
+            server_name="mcp-server-make",
+            server_version="0.1.0",
+            capabilities=server.get_capabilities(
+                notification_options=NotificationOptions(),
+                experimental_capabilities={},
             ),
         )
+        await server.run(read_stream, write_stream, init_options)
 
 
 if __name__ == "__main__":
