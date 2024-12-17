@@ -16,7 +16,8 @@ from . import handlers
 server = Server("mcp-server-make")
 
 
-@server.list_resources
+# Register using simple attribute reference for decorators
+@server.list_resources  # No parentheses
 async def list_resources() -> List[types.Resource]:
     """Handle list resources request."""
     try:
@@ -29,7 +30,7 @@ async def list_resources() -> List[types.Resource]:
         raise
 
 
-@server.read_resource
+@server.read_resource  # No parentheses
 async def read_resource(uri: AnyUrl) -> str:
     """Handle read resource request."""
     try:
@@ -42,13 +43,13 @@ async def read_resource(uri: AnyUrl) -> str:
         raise
 
 
-@server.list_tools
+@server.list_tools  # No parentheses
 async def list_tools() -> List[types.Tool]:
     """Handle list tools request."""
     return await handlers.handle_list_tools()
 
 
-@server.call_tool
+@server.call_tool  # No parentheses
 async def call_tool(
     name: str, arguments: dict | None
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
