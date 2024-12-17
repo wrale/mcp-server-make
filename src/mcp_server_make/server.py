@@ -11,11 +11,30 @@ from . import handlers
 # Initialize the MCP server instance
 server = Server("mcp-server-make")
 
-# Register handlers
-server.list_resources(handlers.handle_list_resources)
-server.read_resource(handlers.handle_read_resource)
-server.list_tools(handlers.handle_list_tools)
-server.call_tool(handlers.handle_call_tool)
+
+# Register handlers correctly using decorators
+@server.list_resources()
+async def list_resources():
+    """Handle list resources request."""
+    return await handlers.handle_list_resources()
+
+
+@server.read_resource()
+async def read_resource(uri):
+    """Handle read resource request."""
+    return await handlers.handle_read_resource(uri)
+
+
+@server.list_tools()
+async def list_tools():
+    """Handle list tools request."""
+    return await handlers.handle_list_tools()
+
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict | None):
+    """Handle tool execution request."""
+    return await handlers.handle_call_tool(name, arguments)
 
 
 async def main():

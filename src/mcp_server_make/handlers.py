@@ -1,7 +1,7 @@
 """MCP protocol handlers for Make server functionality."""
 
 import re
-from typing import List
+from typing import List, Optional
 
 from pydantic import AnyUrl
 import mcp.types as types
@@ -12,7 +12,7 @@ from .make import parse_makefile_targets
 from .security import get_validated_path
 
 
-async def handle_list_resources(server) -> list[types.Resource]:
+async def handle_list_resources() -> list[types.Resource]:
     """List available Make-related resources."""
     resources = []
 
@@ -22,7 +22,7 @@ async def handle_list_resources(server) -> list[types.Resource]:
         if makefile_path.exists():
             resources.append(
                 types.Resource(
-                    uri="make://current/makefile",
+                    uri=AnyUrl("make://current/makefile"),  # Fixed: Use AnyUrl
                     name="Current Makefile",
                     description="Contents of the current Makefile",
                     mimeType="text/plain",
@@ -34,22 +34,23 @@ async def handle_list_resources(server) -> list[types.Resource]:
         if targets:
             resources.append(
                 types.Resource(
-                    uri="make://targets",
+                    uri=AnyUrl("make://targets"),  # Fixed: Use AnyUrl
                     name="Make Targets",
                     description="List of available Make targets",
                     mimeType="application/json",
                 )
             )
 
-    except Exception as e:
-        await server.request_context.session.send_log_message(
-            level="error", data=f"Error listing resources: {str(e)}"
-        )
+    except Exception:
+        # Note: We can't access session here anymore since we removed the server parameter
+        pass
 
     return resources
 
 
-async def handle_read_resource(uri: str) -> str:
+async def handle_read_resource(
+    uri: AnyUrl,
+) -> str:  # Fixed: Changed parameter type to AnyUrl
     """
     Read Make-related resource content.
 
@@ -61,22 +62,21 @@ async def handle_read_resource(uri: str) -> str:
     """
     from .make import read_makefile, validate_makefile_syntax
 
-    parsed_uri = AnyUrl(uri)
-    if parsed_uri.scheme != "make":
-        raise ValueError(f"Unsupported URI scheme: {parsed_uri.scheme}")
+    if uri.scheme != "make":
+        raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
     try:
-        if parsed_uri.path == "/current/makefile":
+        if uri.path == "/current/makefile":
             path = get_validated_path() / "Makefile"
             content = await read_makefile(path)
             validate_makefile_syntax(content)
             return content
 
-        elif parsed_uri.path == "/targets":
+        elif uri.path == "/targets":
             targets = await parse_makefile_targets()
             return str(targets)  # Basic string representation for now
 
-        raise ValueError(f"Unknown resource path: {parsed_uri.path}")
+        raise ValueError(f"Unknown resource path: {uri.path}")
 
     except (MakefileError, SecurityError) as e:
         raise ValueError(str(e))
@@ -120,7 +120,7 @@ async def handle_list_tools() -> List[types.Tool]:
 
 
 async def handle_call_tool(
-    name: str, arguments: dict | None
+    name: str, arguments: Optional[dict]
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     """Handle Make-related tool execution."""
     if name == "list-targets":
