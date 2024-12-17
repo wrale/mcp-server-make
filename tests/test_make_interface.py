@@ -4,7 +4,10 @@ import os
 import pathlib
 import pytest
 import textwrap
-from typing import Generator
+from typing import AsyncGenerator, Generator
+
+from mcp.server import RequestContext, ServerSession
+from mcp.server.test_utils import TestContext
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
 from mcp_server_make.security import get_validated_path
@@ -13,7 +16,29 @@ from mcp_server_make.make import (
     validate_makefile_syntax,
     parse_makefile_targets,
 )
-from mcp_server_make.server import server
+from mcp_server_make.server import server, request_context
+
+
+class MockServerSession(ServerSession):
+    """Mock MCP server session for testing."""
+
+    async def send_log_message(self, level: str, data: str) -> None:
+        """Mock log message sending."""
+        pass  # No-op for testing
+
+
+@pytest.fixture
+async def request_ctx() -> AsyncGenerator[RequestContext[ServerSession], None]:
+    """Setup request context for tests."""
+    session = MockServerSession()
+    ctx = RequestContext(session=session, context=TestContext())
+
+    # Set context and handle cleanup
+    token = request_context.set(ctx)
+    try:
+        yield ctx
+    finally:
+        request_context.reset(token)
 
 
 # Fixtures for test Makefiles
@@ -125,7 +150,10 @@ async def test_parse_makefile_targets(valid_makefile: pathlib.Path) -> None:
 
 # Test MCP Resource Interface
 @pytest.mark.asyncio
-async def test_list_resources_valid_makefile(valid_makefile: pathlib.Path) -> None:
+async def test_list_resources_valid_makefile(
+    request_ctx: RequestContext[ServerSession],
+    valid_makefile: pathlib.Path,
+) -> None:
     """Test listing available Make resources."""
     resources = await server.list_resources()
 
@@ -136,7 +164,10 @@ async def test_list_resources_valid_makefile(valid_makefile: pathlib.Path) -> No
 
 
 @pytest.mark.asyncio
-async def test_read_resource_makefile(valid_makefile: pathlib.Path) -> None:
+async def test_read_resource_makefile(
+    request_ctx: RequestContext[ServerSession],
+    valid_makefile: pathlib.Path,
+) -> None:
     """Test reading Makefile resource."""
     content = await server.read_resource("make://current/makefile")
     assert "test:" in content
@@ -144,7 +175,10 @@ async def test_read_resource_makefile(valid_makefile: pathlib.Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_read_resource_targets(valid_makefile: pathlib.Path) -> None:
+async def test_read_resource_targets(
+    request_ctx: RequestContext[ServerSession],
+    valid_makefile: pathlib.Path,
+) -> None:
     """Test reading targets resource."""
     content = await server.read_resource("make://targets")
     assert "test" in content
@@ -152,7 +186,10 @@ async def test_read_resource_targets(valid_makefile: pathlib.Path) -> None:
 
 
 @pytest.mark.asyncio
-async def test_read_resource_invalid_uri(valid_makefile: pathlib.Path) -> None:
+async def test_read_resource_invalid_uri(
+    request_ctx: RequestContext[ServerSession],
+    valid_makefile: pathlib.Path,
+) -> None:
     """Test reading with invalid URI scheme."""
     with pytest.raises(ValueError, match="Unsupported URI scheme"):
         await server.read_resource("invalid://scheme")
