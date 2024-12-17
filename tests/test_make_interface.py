@@ -1,6 +1,7 @@
 """Test the core Make interface functionality."""
 
 import os
+from pathlib import Path
 import pathlib
 import textwrap
 import asyncio
