@@ -1,5 +1,3 @@
-import asyncio
-
 from mcp.server.models import InitializationOptions
 import mcp.types as types
 from mcp.server import NotificationOptions, Server
@@ -10,6 +8,7 @@ import mcp.server.stdio
 notes: dict[str, str] = {}
 
 server = Server("mcp-server-make")
+
 
 @server.list_resources()
 async def handle_list_resources() -> list[types.Resource]:
@@ -27,6 +26,7 @@ async def handle_list_resources() -> list[types.Resource]:
         for name in notes
     ]
 
+
 @server.read_resource()
 async def handle_read_resource(uri: AnyUrl) -> str:
     """
@@ -41,6 +41,7 @@ async def handle_read_resource(uri: AnyUrl) -> str:
         name = name.lstrip("/")
         return notes[name]
     raise ValueError(f"Note not found: {name}")
+
 
 @server.list_prompts()
 async def handle_list_prompts() -> list[types.Prompt]:
@@ -61,6 +62,7 @@ async def handle_list_prompts() -> list[types.Prompt]:
             ],
         )
     ]
+
 
 @server.get_prompt()
 async def handle_get_prompt(
@@ -85,13 +87,13 @@ async def handle_get_prompt(
                     type="text",
                     text=f"Here are the current notes to summarize:{detail_prompt}\n\n"
                     + "\n".join(
-                        f"- {name}: {content}"
-                        for name, content in notes.items()
+                        f"- {name}: {content}" for name, content in notes.items()
                     ),
                 ),
             )
         ],
     )
+
 
 @server.list_tools()
 async def handle_list_tools() -> list[types.Tool]:
@@ -113,6 +115,7 @@ async def handle_list_tools() -> list[types.Tool]:
             },
         )
     ]
+
 
 @server.call_tool()
 async def handle_call_tool(
@@ -146,6 +149,7 @@ async def handle_call_tool(
             text=f"Added note '{note_name}' with content: {content}",
         )
     ]
+
 
 async def main():
     # Run the server using stdin/stdout streams
