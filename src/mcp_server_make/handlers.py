@@ -18,14 +18,22 @@ def create_make_url(path: str) -> AnyUrl:
     Create a properly formatted MCP URI for the Make server.
 
     Args:
-        path: The path portion of the URI
+        path: The path portion of the URI (e.g. "/current/makefile" or "/targets")
 
     Returns:
-        AnyUrl instance for the Make server
+        AnyUrl instance for the Make server URI (e.g. "make://current/makefile")
+
+    Note:
+        The make:// scheme is used for all Make-related resources. The path should
+        start with a forward slash and use forward slashes as separators.
     """
     # Ensure slashes are preserved but other special chars are encoded
     safe_path = quote(path.strip("/"), safe="/")
-    return AnyUrl.build(scheme="make", host=None, path=safe_path)
+    return AnyUrl.build(
+        scheme="make",
+        host="",  # Empty host for make:// URIs
+        path=f"/{safe_path}",  # Ensure path starts with /
+    )
 
 
 async def handle_list_resources() -> list[types.Resource]:
@@ -69,10 +77,10 @@ async def handle_read_resource(uri: AnyUrl) -> str:
     Read Make-related resource content.
 
     Args:
-        uri: Resource URI to read
+        uri: Resource URI to read (e.g. "make://current/makefile")
 
     Returns:
-        Resource content
+        Resource content as string
 
     Raises:
         ValueError: If the URI scheme is not 'make' or the path is invalid
