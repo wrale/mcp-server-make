@@ -3,11 +3,13 @@
 import os
 import pathlib
 import textwrap
+import asyncio
 from typing import AsyncGenerator, Generator, Dict, Any
 
 import pytest
 import pytest_asyncio
 from mcp.server import RequestContext, ServerSession
+from mcp.server.models import InitializationOptions
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
 from mcp_server_make.security import get_validated_path
@@ -28,8 +30,47 @@ class EmptyContext:
         self.data: Dict[str, Any] = {}
 
 
+class MockStream:
+    """Mock stream for testing."""
+
+    def __init__(self) -> None:
+        """Initialize the stream."""
+        self.queue: asyncio.Queue = asyncio.Queue()
+        self.closed = False
+
+    async def send(self, data: Any) -> None:
+        """Send data to the stream."""
+        if self.closed:
+            raise RuntimeError("Stream closed")
+        await self.queue.put(data)
+
+    async def receive(self) -> Any:
+        """Receive data from the stream."""
+        if self.closed:
+            raise RuntimeError("Stream closed")
+        return await self.queue.get()
+
+    async def aclose(self) -> None:
+        """Close the stream."""
+        self.closed = True
+        # Clear any remaining items
+        while not self.queue.empty():
+            await self.queue.get()
+
+
 class MockServerSession(ServerSession):
     """Mock MCP server session for testing."""
+
+    def __init__(self) -> None:
+        """Initialize the mock session."""
+        read_stream = MockStream()
+        write_stream = MockStream()
+        init_options = InitializationOptions(
+            server_name="mock-test",
+            server_version="0.1.0",
+            capabilities={},
+        )
+        super().__init__(read_stream, write_stream, init_options)
 
     async def send_log_message(self, level: str, data: str) -> None:
         """Mock log message sending."""
@@ -37,9 +78,13 @@ class MockServerSession(ServerSession):
 
 
 @pytest_asyncio.fixture(scope="function")
-async def mock_session() -> Generator[ServerSession, None, None]:
+async def mock_session() -> AsyncGenerator[ServerSession, None]:
     """Create a mock server session."""
-    yield MockServerSession()
+    session = MockServerSession()
+    yield session
+    # Ensure cleanup of any resources
+    await session._read_stream.aclose()  # type: ignore
+    await session._write_stream.aclose()  # type: ignore
 
 
 @pytest_asyncio.fixture(scope="function")
