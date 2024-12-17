@@ -29,20 +29,23 @@ class MakeServer(Server):
         async def _list_resources() -> List[types.Resource]:
             try:
                 return await handlers.handle_list_resources()
-            except Exception:
-                raise
+            except Exception as e:
+                raise ValueError(str(e))
 
-        async def _read_resource(uri: AnyUrl) -> str:
+        async def _read_resource(uri: AnyUrl | str) -> str:
             try:
+                # Convert string URIs to AnyUrl instances
+                if isinstance(uri, str):
+                    uri = handlers.create_make_url(uri.removeprefix("make://"))
                 return await handlers.handle_read_resource(uri)
-            except Exception:
-                raise
+            except Exception as e:
+                raise ValueError(str(e))
 
         async def _list_tools() -> List[types.Tool]:
             try:
                 return await handlers.handle_list_tools()
-            except Exception:
-                raise
+            except Exception as e:
+                raise ValueError(str(e))
 
         async def _call_tool(
             name: str,
@@ -50,8 +53,8 @@ class MakeServer(Server):
         ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
             try:
                 return await handlers.handle_call_tool(name, arguments)
-            except Exception:
-                raise
+            except Exception as e:
+                raise ValueError(str(e))
 
         self._list_resources_handler = _list_resources
         self._read_resource_handler = _read_resource

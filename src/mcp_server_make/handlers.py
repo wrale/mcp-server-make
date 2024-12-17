@@ -14,26 +14,20 @@ from .security import get_validated_path
 
 
 def create_make_url(path: str) -> AnyUrl:
-    """
-    Create a properly formatted MCP URI for the Make server.
+    """Create a properly formatted MCP URI for the Make server.
 
     Args:
-        path: The path portion of the URI (e.g. "/current/makefile" or "/targets")
+        path: Path without scheme (e.g. "current/makefile" or "targets")
 
     Returns:
-        AnyUrl instance for the Make server URI (e.g. "make://current/makefile")
-
-    Note:
-        The make:// scheme is used for all Make-related resources. The path should
-        start with a forward slash and use forward slashes as separators.
+        AnyUrl for Make server (e.g. "make://current/makefile")
     """
-    # Ensure slashes are preserved but other special chars are encoded
-    safe_path = quote(path.strip("/"), safe="/")
-    return AnyUrl.build(
-        scheme="make",
-        host="",  # Empty host for make:// URIs
-        path=f"/{safe_path}",  # Ensure path starts with /
-    )
+    # Remove any leading/trailing slashes and encode path
+    clean_path = path.strip("/")
+    safe_path = quote(clean_path, safe="/")
+
+    # Build URI with proper host and path
+    return AnyUrl(f"make://{safe_path}")
 
 
 async def handle_list_resources() -> list[types.Resource]:
@@ -46,7 +40,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if makefile_path.exists():
             resources.append(
                 types.Resource(
-                    uri=create_make_url("/current/makefile"),
+                    uri=create_make_url("current/makefile"),
                     name="Current Makefile",
                     description="Contents of the current Makefile",
                     mimeType="text/plain",
@@ -58,7 +52,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if targets:
             resources.append(
                 types.Resource(
-                    uri=create_make_url("/targets"),
+                    uri=create_make_url("targets"),
                     name="Make Targets",
                     description="List of available Make targets",
                     mimeType="application/json",
@@ -66,15 +60,13 @@ async def handle_list_resources() -> list[types.Resource]:
             )
 
     except Exception as e:
-        # Log error but continue - we want partial results if possible
         print(f"Error listing resources: {e}")
 
     return resources
 
 
 async def handle_read_resource(uri: AnyUrl) -> str:
-    """
-    Read Make-related resource content.
+    """Read Make-related resource content.
 
     Args:
         uri: Resource URI to read (e.g. "make://current/makefile")
@@ -83,18 +75,16 @@ async def handle_read_resource(uri: AnyUrl) -> str:
         Resource content as string
 
     Raises:
-        ValueError: If the URI scheme is not 'make' or the path is invalid
+        ValueError: If URI is invalid or resource not found
     """
     from .make import read_makefile, validate_makefile_syntax
 
     if uri.scheme != "make":
         raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
-    if not uri.path:
-        raise ValueError("URI path is required")
-
-    # Safe path comparison since AnyUrl normalizes paths
-    norm_path = uri.path.lower().strip("/")
+    # Strip any extra slashes and host parts from path
+    norm_path = "/".join(p for p in uri.path.split("/") if p)
+    norm_path = norm_path.lower()
 
     try:
         if norm_path == "current/makefile":
@@ -105,9 +95,9 @@ async def handle_read_resource(uri: AnyUrl) -> str:
 
         elif norm_path == "targets":
             targets = await parse_makefile_targets()
-            return str(targets)  # Basic string representation for now
+            return str(targets)
 
-        raise ValueError(f"Unknown resource path: {uri.path}")
+        raise ValueError(f"Unknown resource path: {norm_path}")
 
     except (MakefileError, SecurityError) as e:
         raise ValueError(str(e))
@@ -155,7 +145,18 @@ async def handle_list_tools() -> List[types.Tool]:
 async def handle_call_tool(
     name: str, arguments: Optional[dict]
 ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """Handle Make-related tool execution."""
+    """Execute a Make-related tool.
+
+    Args:
+        name: Tool name to execute
+        arguments: Optional tool arguments
+
+    Returns:
+        List of tool result content
+
+    Raises:
+        ValueError: If tool not found or invalid arguments
+    """
     if name == "list-targets":
         pattern = (arguments or {}).get("pattern", "*")
         targets = await parse_makefile_targets()
@@ -192,5 +193,4 @@ async def handle_call_tool(
         except (MakefileError, SecurityError) as e:
             raise ValueError(str(e))
 
-    else:
-        raise ValueError(f"Unknown tool: {name}")
+    raise ValueError(f"Unknown tool: {name}")
