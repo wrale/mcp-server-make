@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    
+    - name: Install uv
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+    - name: Install build dependencies
+      run: uv pip install build twine
+
+    - name: Build package
+      run: python -m build
+    
+    - name: Test wheel with uvx
+      run: |
+        uvx install dist/*.whl
+        mcp-server-make --help
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
