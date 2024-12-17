@@ -2,7 +2,7 @@
 
 import asyncio
 import contextvars
-from typing import Any, Protocol, List
+from typing import Any, Protocol, List, TypeVar, Callable, Awaitable
 
 from pydantic import AnyUrl
 from mcp.server import (
@@ -21,6 +21,9 @@ from . import handlers
 request_context: contextvars.ContextVar[RequestContext[ServerSession]] = (
     contextvars.ContextVar("request_context")
 )
+
+# Type variable for handler return type
+T = TypeVar("T")
 
 
 class ResourceHandlers(Protocol):
@@ -57,22 +60,44 @@ class MakeServer(Server):
         super().__init__("mcp-server-make")
         self._init_handlers()
 
+    async def _with_context(
+        self,
+        context: RequestContext[ServerSession],
+        func: Callable[..., Awaitable[T]],
+        *args: Any,
+        **kwargs: Any,
+    ) -> T:
+        """Run a handler function with the request context.
+
+        Args:
+            context: The request context to use
+            func: Async function to execute within the context
+            *args: Positional arguments for the function
+            **kwargs: Keyword arguments for the function
+
+        Returns:
+            Result from the executed function
+
+        This helper ensures the request context is properly maintained across
+        async boundaries by using contextvars.copy_context().
+        """
+        # Create a new context with our request context
+        ctx = contextvars.copy_context()
+        token = ctx.run(request_context.set, context)
+        try:
+            # Execute the function in the new context
+            return await asyncio.create_task(
+                func(*args, **kwargs), name=f"mcp_make_{func.__name__}"
+            )
+        finally:
+            ctx.run(request_context.reset, token)
+
     def _init_handlers(self) -> None:
         """Initialize the handler functions."""
 
-        async def _with_context(
-            context: RequestContext[ServerSession], func: Any, *args, **kwargs
-        ) -> Any:
-            """Run a handler function with the request context."""
-            token = request_context.set(context)
-            try:
-                return await func(*args, **kwargs)
-            finally:
-                request_context.reset(token)
-
         async def _list_resources() -> List[types.Resource]:
             try:
-                return await _with_context(
+                return await self._with_context(
                     self.request_context, handlers.handle_list_resources
                 )
             except Exception as e:
@@ -84,7 +109,7 @@ class MakeServer(Server):
 
         async def _read_resource(uri: AnyUrl) -> str:
             try:
-                return await _with_context(
+                return await self._with_context(
                     self.request_context, handlers.handle_read_resource, uri
                 )
             except Exception as e:
@@ -95,12 +120,14 @@ class MakeServer(Server):
                 raise
 
         async def _list_tools() -> List[types.Tool]:
-            return await _with_context(self.request_context, handlers.handle_list_tools)
+            return await self._with_context(
+                self.request_context, handlers.handle_list_tools
+            )
 
         async def _call_tool(
             name: str, arguments: dict | None
         ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-            return await _with_context(
+            return await self._with_context(
                 self.request_context, handlers.handle_call_tool, name, arguments
             )
 
