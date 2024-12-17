@@ -12,52 +12,48 @@ from mcp.server.models import InitializationOptions
 from . import handlers
 
 
-# Initialize server instance with name only
-server = Server("mcp-server-make")
+class MakeServer(Server):
+    """MCP Server implementation for GNU Make functionality."""
+
+    def __init__(self):
+        """Initialize the Make server."""
+        super().__init__("mcp-server-make")
+
+    async def list_resources(self) -> List[types.Resource]:
+        """Handle list resources request."""
+        try:
+            return await handlers.handle_list_resources()
+        except Exception as e:
+            await self.request_context.session.send_log_message(
+                level="error",
+                data=f"Error listing resources: {str(e)}",
+            )
+            raise
+
+    async def read_resource(self, uri: AnyUrl) -> str:
+        """Handle read resource request."""
+        try:
+            return await handlers.handle_read_resource(uri)
+        except Exception as e:
+            await self.request_context.session.send_log_message(
+                level="error",
+                data=f"Error reading resource {uri}: {str(e)}",
+            )
+            raise
+
+    async def list_tools(self) -> List[types.Tool]:
+        """Handle list tools request."""
+        return await handlers.handle_list_tools()
+
+    async def call_tool(
+        self, name: str, arguments: dict | None
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Handle tool execution request."""
+        return await handlers.handle_call_tool(name, arguments)
 
 
-# Define handler functions
-async def handle_list_resources() -> List[types.Resource]:
-    """Handle list resources request."""
-    try:
-        return await handlers.handle_list_resources()
-    except Exception as e:
-        await server.request_context.session.send_log_message(
-            level="error",
-            data=f"Error listing resources: {str(e)}",
-        )
-        raise
-
-
-async def handle_read_resource(uri: AnyUrl) -> str:
-    """Handle read resource request."""
-    try:
-        return await handlers.handle_read_resource(uri)
-    except Exception as e:
-        await server.request_context.session.send_log_message(
-            level="error",
-            data=f"Error reading resource {uri}: {str(e)}",
-        )
-        raise
-
-
-async def handle_list_tools() -> List[types.Tool]:
-    """Handle list tools request."""
-    return await handlers.handle_list_tools()
-
-
-async def handle_call_tool(
-    name: str, arguments: dict | None
-) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-    """Handle tool execution request."""
-    return await handlers.handle_call_tool(name, arguments)
-
-
-# Register handlers with server
-server.list_resources(handle_list_resources)
-server.read_resource(handle_read_resource)
-server.list_tools(handle_list_tools)
-server.call_tool(handle_call_tool)
+# Create the singleton server instance
+server = MakeServer()
 
 
 async def main():
