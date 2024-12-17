@@ -231,7 +231,7 @@ async def handle_list_resources() -> list[types.Resource]:
             )
 
     except Exception as e:
-        server.request_context.session.send_log_message(
+        await server.request_context.session.send_log_message(
             level="error", data=f"Error listing resources: {str(e)}"
         )
 
