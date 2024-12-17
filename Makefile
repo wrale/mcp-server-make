@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 
 # Project settings
-PROJECT_NAME = mcp-server-map
+PROJECT_NAME = mcp-server-make
 PACKAGE_NAME = mcp_server_make
 PYTHON_VERSION = 3.12
 
@@ -11,8 +11,8 @@ PYTHON = python$(PYTHON_VERSION)
 UV = uv
 PIP = $(UV) pip
 PYTEST = pytest
-RUFF = ruff
-MYPY = mypy
+RUFF = $(VENV_BIN)/ruff
+MYPY = $(VENV_BIN)/mypy
 
 # Directory structure
 SRC_DIR = src
@@ -47,8 +47,8 @@ venv: ## Create virtual environment
 	$(UV) pip install -e .
 
 dev-setup: venv ## Set up development environment
+	$(UV) pip install --upgrade pip
 	$(UV) pip install -e ".[dev]"
-	$(UV) pip install pytest ruff mypy
 
 clean: ## Clean build artifacts
 	rm -rf $(BUILD_DIR) $(DIST_DIR) .pytest_cache .ruff_cache .mypy_cache *.egg-info
