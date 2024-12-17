@@ -25,7 +25,6 @@ def create_make_url(path: str) -> AnyUrl:
     """
     # Ensure slashes are preserved but other special chars are encoded
     safe_path = quote(path.strip("/"), safe="/")
-    make_url = f"make://{safe_path}"
     return AnyUrl.build(scheme="make", host=None, path=safe_path)
 
 
