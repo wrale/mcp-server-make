@@ -16,10 +16,7 @@ from typing import AsyncGenerator, Generator, Dict, Any
 import pytest
 import pytest_asyncio
 from mcp.server import RequestContext, ServerSession
-from mcp.server.models import (
-    InitializationOptions,
-    RequestMetadata,  # Using server's metadata model
-)
+from mcp.server.models import InitializationOptions
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
 from mcp_server_make.security import get_validated_path
@@ -31,22 +28,22 @@ from mcp_server_make.make import (
 from mcp_server_make.server import server, request_context
 
 
-def generate_request_meta() -> RequestMetadata:
+def generate_request_meta() -> Dict[str, Any]:
     """Generate test request metadata.
 
-    Returns consistent metadata for test requests while simulating
-    actual MCP request properties. This keeps tests deterministic
-    while matching protocol requirements.
+    Returns consistent metadata dictionary for test requests while simulating
+    actual MCP request properties. This keeps tests deterministic while
+    matching protocol requirements.
 
     Returns:
-        Populated RequestMetadata instance for testing
+        Dictionary containing required request metadata fields
     """
-    return RequestMetadata(
-        client_name="test-client",
-        client_version="0.1.0",
-        protocol_version="1.0",
-        capabilities={},  # Empty capabilities for testing
-    )
+    return {
+        "client_name": "test-client",
+        "client_version": "0.1.0",
+        "protocol_version": "1.0",
+        "capabilities": {},  # Empty capabilities for testing
+    }
 
 
 # Testing infrastructure classes
@@ -180,7 +177,7 @@ async def request_ctx(
     ctx = RequestContext(
         session=mock_session,
         request_id=str(uuid.uuid4()),  # Generate unique request ID
-        meta=generate_request_meta(),  # Add required metadata
+        meta=generate_request_meta(),  # Add metadata as direct dictionary
     )
 
     # Set context and ensure cleanup
