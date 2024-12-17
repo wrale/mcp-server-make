@@ -3,6 +3,7 @@
 import asyncio
 from typing import List
 
+from pydantic import AnyUrl
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
 import mcp.types as types
@@ -15,7 +16,6 @@ from . import handlers
 server = Server("mcp-server-make")
 
 
-# Register handlers correctly using decorators
 @server.list_resources
 async def list_resources() -> List[types.Resource]:
     """Handle list resources request."""
@@ -30,7 +30,7 @@ async def list_resources() -> List[types.Resource]:
 
 
 @server.read_resource
-async def read_resource(uri: str) -> str:
+async def read_resource(uri: AnyUrl) -> str:
     """Handle read resource request."""
     try:
         return await handlers.handle_read_resource(uri)
