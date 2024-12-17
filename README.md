@@ -1,5 +1,9 @@
 # mcp-server-make
 
+[![CI](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/ci.yml/badge.svg)](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/ci.yml)
+[![Release](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/release.yml/badge.svg)](https://github.com/modelcontextprotocol/mcp-server-make/actions/workflows/release.yml)
+[![PyPI version](https://badge.fury.io/py/mcp-server-make.svg)](https://badge.fury.io/py/mcp-server-make)
+
 MCP Server for GNU Make - providing controlled and secure access to Make systems from LLMs.
 
 ## Features
@@ -123,7 +127,7 @@ npx @modelcontextprotocol/inspector uv --directory /path/to/mcp-server-make run 
 
 ## Security Features
 
-Version 0.1.0 implements several security controls:
+Version 0.1.5 implements several security controls:
 
 - Path validation and directory boundary enforcement
 - Target name sanitization and command validation
@@ -154,7 +158,7 @@ Version 0.1.0 implements several security controls:
 
 ## Known Limitations
 
-Version 0.1.0 has the following scope limitations:
+Version 0.1.5 has the following scope limitations:
 
 - Read-only Makefile access
 - Single Makefile per working directory
@@ -180,6 +184,11 @@ MIT - See LICENSE file for details.
 - GitHub Discussions: Questions and community help
 
 ## Version History
+
+### 0.1.5
+- Version bump
+- Added workflow status badges
+- Bug fixes and improvements
 
 ### 0.1.0
 - Initial stable release

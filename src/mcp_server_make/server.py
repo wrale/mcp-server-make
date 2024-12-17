@@ -125,7 +125,7 @@ async def main():
     async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
         init_options = InitializationOptions(
             server_name="mcp-server-make",
-            server_version="0.1.0",
+            server_version="0.1.5",
             capabilities=server.get_capabilities(
                 notification_options=NotificationOptions(),
                 experimental_capabilities={},
