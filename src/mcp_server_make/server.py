@@ -2,7 +2,6 @@
 
 import asyncio
 from typing import List
-from pydantic import AnyUrl
 
 from mcp.server import NotificationOptions, Server
 import mcp.server.stdio
@@ -31,7 +30,7 @@ async def list_resources() -> List[types.Resource]:
 
 
 @server.read_resource
-async def read_resource(uri: AnyUrl) -> str:
+async def read_resource(uri: str) -> str:
     """Handle read resource request."""
     try:
         return await handlers.handle_read_resource(uri)
@@ -44,13 +43,15 @@ async def read_resource(uri: AnyUrl) -> str:
 
 
 @server.list_tools
-async def list_tools():
+async def list_tools() -> List[types.Tool]:
     """Handle list tools request."""
     return await handlers.handle_list_tools()
 
 
 @server.call_tool
-async def call_tool(name: str, arguments: dict | None):
+async def call_tool(
+    name: str, arguments: dict | None
+) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
     """Handle tool execution request."""
     return await handlers.handle_call_tool(name, arguments)
 
