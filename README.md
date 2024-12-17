@@ -2,74 +2,54 @@
 
 MCP Server for GNU Make - providing controlled and secure access to Make systems from LLMs.
 
-## Components
+## Features
 
 ### Resources
-
-The server implements foundational GNU Make access through:
-- `make://current/makefile` - Access the current Makefile content
-- `make://targets` - List available Make targets with metadata
-- Basic path validation and security controls
+- `make://current/makefile` - Access current Makefile content securely
+- `make://targets` - List available Make targets with documentation
 
 ### Tools
-
-The server provides core Make interaction tools:
-- `list-targets`: Enumerate available targets with documentation
-  - Returns target names, dependencies, and descriptions
-  - Optional pattern filtering
+- `list-targets`: List available Make targets
+  - Returns target names and documentation
+  - Optional pattern filtering for searching targets
 - `run-target`: Execute Make targets safely
-  - Required target name parameter
-  - Optional timeout configuration
-  - Built-in security controls and validation
+  - Required: target name
+  - Optional: timeout (1-3600 seconds, default 300)
 
-## Configuration
+## Quick Start
 
-The server requires Python 3.12 or higher and a GNU Make installation.
+### Prerequisites
+- Python 3.12+
+- GNU Make
+- pip or uv package manager
 
-### Environment Setup
+### Installation
 
-1. Install dependencies:
+Using uv (recommended):
 ```bash
-uv venv
-source .venv/bin/activate  # On Unix/Mac
-.venv\Scripts\activate     # On Windows
-uv pip install -e .
+uvx mcp-server-make
 ```
 
-2. Development setup:
+Using pip:
 ```bash
-make dev-setup
+pip install mcp-server-make
 ```
 
 ### Claude Desktop Integration
 
-Add to Claude Desktop configuration:
-- MacOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%/Claude/claude_desktop_config.json`
+Add to your Claude Desktop configuration:
 
-<details>
-  <summary>Development Configuration</summary>
-
-```json
-{
-  "mcpServers": {
-    "mcp-server-make": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "/path/to/mcp-server-make",
-        "run",
-        "mcp-server-make"
-      ]
-    }
-  }
-}
+MacOS:
+```bash
+nano ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
-</details>
 
-<details>
-  <summary>Production Configuration (after PyPI publish)</summary>
+Windows:
+```bash
+notepad %APPDATA%\Claude\claude_desktop_config.json
+```
 
+Add configuration:
 ```json
 {
   "mcpServers": {
@@ -80,57 +60,120 @@ Add to Claude Desktop configuration:
   }
 }
 ```
-</details>
+
+Restart Claude Desktop to activate the Make server.
+
+## Usage Examples
+
+### List Available Targets
+```
+I see you have a Makefile. Can you list the available targets?
+```
+
+### View Target Documentation
+```
+What does the 'build' target do?
+```
+
+### Run Tests
+```
+Please run the test target with a 2 minute timeout.
+```
+
+### View Makefile
+```
+Show me the current Makefile content.
+```
 
 ## Development
 
-### Local Development
-
-1. Create a development environment:
+### Local Development Setup
 ```bash
+# Clone repository
+git clone https://github.com/modelcontextprotocol/mcp-server-make
+cd mcp-server-make
+
+# Create virtual environment
+uv venv
+source .venv/bin/activate  # Unix/MacOS
+.venv\Scripts\activate     # Windows
+
+# Install dependencies
 make dev-setup
-```
 
-2. Run tests and formatting:
-```bash
+# Run tests and checks
 make check
 ```
 
-3. Start the development server:
-```bash
-make dev
-```
+### Testing with MCP Inspector
 
-### Debugging
-
-For debugging, we recommend using the MCP Inspector:
-
+Test the server using the MCP Inspector:
 ```bash
 npx @modelcontextprotocol/inspector uv --directory /path/to/mcp-server-make run mcp-server-make
 ```
 
-The Inspector provides an interactive web interface for testing resources and tools.
+## Security Features
 
-### Security Notes
+Version 0.1.0 implements several security controls:
 
-The server implements several security controls:
-- Path validation and boundary enforcement
-- Target name and command sanitization
-- Execution timeouts and resource limits
-- Restricted environment access
+- Path validation and directory boundary enforcement
+- Target name sanitization and command validation
+- Resource and timeout limits for command execution
+- Restricted environment access and cleanup
+- Error isolation and safe propagation
 
-### Building for Distribution
+## Behavior Details
 
-1. Build package:
-```bash
-make build
-```
+### Resource Access
+- Makefile content is read-only and validated
+- Target listing includes names and documentation
+- Full path validation prevents traversal attacks
+- Resources require proper make:// URIs
 
-2. Publish to PyPI (maintainers only):
-```bash
-make publish
-```
+### Tool Execution
+- Targets are sanitized and validated
+- Execution occurs in controlled environment
+- Timeouts prevent infinite execution
+- Clear error messages for failures
+- Resource cleanup after execution
 
-Requires PyPI credentials set via:
-- Token: `UV_PUBLISH_TOKEN`
-- Or username/password: `UV_PUBLISH_USERNAME` and `UV_PUBLISH_PASSWORD`
+### Error Handling
+- Type-safe error propagation
+- Context-aware error messages
+- Clean error isolation
+- No error leakage
+
+## Known Limitations
+
+Version 0.1.0 has the following scope limitations:
+
+- Read-only Makefile access
+- Single Makefile per working directory
+- No support for include directives
+- Basic target pattern matching only
+- No variable expansion in documentation
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new features
+4. Ensure all checks pass (`make check`)
+5. Submit a pull request
+
+## License
+
+MIT - See LICENSE file for details.
+
+## Support
+
+- GitHub Issues: Bug reports and feature requests
+- GitHub Discussions: Questions and community help
+
+## Version History
+
+### 0.1.0
+- Initial stable release
+- Basic Makefile access and target execution
+- Core security controls
+- Claude Desktop integration
