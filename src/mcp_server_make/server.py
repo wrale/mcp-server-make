@@ -1,55 +1,18 @@
 """MCP Server for GNU Make - Core functionality."""
 
 import asyncio
-import contextvars
-from typing import Any, Protocol, List, TypeVar, Callable, Coroutine
+from typing import Any, List
 
 from pydantic import AnyUrl
 from mcp.server import (
     NotificationOptions,
     Server,
-    RequestContext,
-    ServerSession,
 )
 import mcp.server.stdio
 import mcp.types as types
 from mcp.server.models import InitializationOptions
 
 from . import handlers
-
-# Context variable for request handling
-request_context: contextvars.ContextVar[RequestContext[ServerSession]] = (
-    contextvars.ContextVar("request_context")
-)
-
-# Type variable for handler return type
-T = TypeVar("T")
-
-
-class ResourceHandlers(Protocol):
-    """Protocol defining expected signatures for resource handlers."""
-
-    async def list_resources(self) -> List[types.Resource]:
-        """List available resources."""
-        ...
-
-    async def read_resource(self, uri: AnyUrl) -> str:
-        """Read resource content."""
-        ...
-
-
-class ToolHandlers(Protocol):
-    """Protocol defining expected signatures for tool handlers."""
-
-    async def list_tools(self) -> List[types.Tool]:
-        """List available tools."""
-        ...
-
-    async def call_tool(
-        self, name: str, arguments: dict | None
-    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        """Execute a tool."""
-        ...
 
 
 class MakeServer(Server):
@@ -60,70 +23,35 @@ class MakeServer(Server):
         super().__init__("mcp-server-make")
         self._init_handlers()
 
-    async def _with_context(
-        self,
-        context: RequestContext[ServerSession],
-        func: Callable[..., Coroutine[Any, Any, T]],
-        *args: Any,
-        **kwargs: Any,
-    ) -> T:
-        """Run a handler function with the request context.
-
-        This helper ensures the request context is properly maintained across
-        async boundaries by using contextvars.copy_context().
-
-        Args:
-            context: The request context to use
-            func: Coroutine function to execute within the context
-            *args: Positional arguments for the function
-            **kwargs: Keyword arguments for the function
-
-        Returns:
-            Result from the executed coroutine
-
-        Note:
-            Error logging happens inside this context to ensure request_context
-            availability.
-        """
-        ctx = contextvars.copy_context()
-        token = ctx.run(request_context.set, context)
-        try:
-            try:
-                coro = func(*args, **kwargs)
-                return await asyncio.create_task(coro, name=f"mcp_make_{func.__name__}")
-            except Exception as e:
-                # Log error while we still have context
-                await context.session.send_log_message(
-                    level="error", data=f"Error in {func.__name__}: {str(e)}"
-                )
-                raise
-        finally:
-            ctx.run(request_context.reset, token)
-
     def _init_handlers(self) -> None:
         """Initialize the handler functions."""
 
         async def _list_resources() -> List[types.Resource]:
-            return await self._with_context(
-                self.request_context, handlers.handle_list_resources
-            )
+            try:
+                return await handlers.handle_list_resources()
+            except Exception:
+                raise
 
         async def _read_resource(uri: AnyUrl) -> str:
-            return await self._with_context(
-                self.request_context, handlers.handle_read_resource, uri
-            )
+            try:
+                return await handlers.handle_read_resource(uri)
+            except Exception:
+                raise
 
         async def _list_tools() -> List[types.Tool]:
-            return await self._with_context(
-                self.request_context, handlers.handle_list_tools
-            )
+            try:
+                return await handlers.handle_list_tools()
+            except Exception:
+                raise
 
         async def _call_tool(
-            name: str, arguments: dict | None
+            name: str,
+            arguments: dict | None,
         ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-            return await self._with_context(
-                self.request_context, handlers.handle_call_tool, name, arguments
-            )
+            try:
+                return await handlers.handle_call_tool(name, arguments)
+            except Exception:
+                raise
 
         self._list_resources_handler = _list_resources
         self._read_resource_handler = _read_resource
