@@ -82,8 +82,13 @@ async def handle_read_resource(uri: AnyUrl) -> str:
     if uri.scheme != "make":
         raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
+    # Ensure path exists and convert to string for safe handling
+    if not uri.path:
+        raise ValueError("URI must have a path component")
+    path_str = str(uri.path)
+
     # Strip any extra slashes and host parts from path
-    norm_path = "/".join(p for p in uri.path.split("/") if p)
+    norm_path = "/".join(p for p in path_str.split("/") if p)
     norm_path = norm_path.lower()
 
     try:
