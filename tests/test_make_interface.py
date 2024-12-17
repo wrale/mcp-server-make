@@ -2,10 +2,11 @@
 
 import os
 import pathlib
-import pytest
 import textwrap
 from typing import AsyncGenerator, Generator, Dict, Any
 
+import pytest
+import pytest_asyncio
 from mcp.server import RequestContext, ServerSession
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
@@ -18,6 +19,7 @@ from mcp_server_make.make import (
 from mcp_server_make.server import server, request_context
 
 
+# Testing infrastructure
 class EmptyContext:
     """Empty context for testing."""
 
@@ -34,11 +36,18 @@ class MockServerSession(ServerSession):
         pass  # No-op for testing
 
 
-@pytest.fixture
-async def request_ctx() -> AsyncGenerator[RequestContext[ServerSession], None]:
+@pytest_asyncio.fixture(scope="function")
+async def mock_session() -> Generator[ServerSession, None, None]:
+    """Create a mock server session."""
+    yield MockServerSession()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def request_ctx(
+    mock_session: ServerSession,
+) -> AsyncGenerator[RequestContext[ServerSession], None]:
     """Setup request context for tests."""
-    session = MockServerSession()
-    ctx = RequestContext(session=session, context=EmptyContext())
+    ctx = RequestContext(session=mock_session, context=EmptyContext())
 
     # Set context and handle cleanup
     token = request_context.set(ctx)
@@ -111,7 +120,7 @@ def test_get_validated_path_outside_project(tmp_path: pathlib.Path) -> None:
 
 
 # Test Makefile Reading and Validation
-@pytest.mark.asyncio
+@pytest_asyncio.fixture
 async def test_read_valid_makefile(valid_makefile: pathlib.Path) -> None:
     """Test reading a valid Makefile."""
     content = await read_makefile(valid_makefile)
@@ -119,7 +128,7 @@ async def test_read_valid_makefile(valid_makefile: pathlib.Path) -> None:
     assert "build:" in content
 
 
-@pytest.mark.asyncio
+@pytest_asyncio.fixture
 async def test_read_nonexistent_makefile(tmp_path: pathlib.Path) -> None:
     """Test reading a nonexistent Makefile fails properly."""
     with pytest.raises(MakefileError, match="Failed to read Makefile"):
@@ -140,7 +149,7 @@ def test_validate_makefile_syntax_invalid(invalid_makefile: pathlib.Path) -> Non
 
 
 # Test Target Parsing
-@pytest.mark.asyncio
+@pytest_asyncio.fixture
 async def test_parse_makefile_targets(valid_makefile: pathlib.Path) -> None:
     """Test parsing Makefile targets."""
     targets = await parse_makefile_targets()
@@ -162,12 +171,13 @@ async def test_list_resources_valid_makefile(
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test listing available Make resources."""
-    resources = await server.list_resources()
+    async with contextlib.AsyncExitStack():
+        resources = await server.list_resources()
 
-    # Should find both the Makefile and targets resources
-    resource_uris = {r.uri for r in resources}
-    assert "make://current/makefile" in resource_uris
-    assert "make://targets" in resource_uris
+        # Should find both the Makefile and targets resources
+        resource_uris = {r.uri for r in resources}
+        assert "make://current/makefile" in resource_uris
+        assert "make://targets" in resource_uris
 
 
 @pytest.mark.asyncio
@@ -176,9 +186,10 @@ async def test_read_resource_makefile(
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test reading Makefile resource."""
-    content = await server.read_resource("make://current/makefile")
-    assert "test:" in content
-    assert "build:" in content
+    async with contextlib.AsyncExitStack():
+        content = await server.read_resource("make://current/makefile")
+        assert "test:" in content
+        assert "build:" in content
 
 
 @pytest.mark.asyncio
@@ -187,9 +198,10 @@ async def test_read_resource_targets(
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test reading targets resource."""
-    content = await server.read_resource("make://targets")
-    assert "test" in content
-    assert "build" in content
+    async with contextlib.AsyncExitStack():
+        content = await server.read_resource("make://targets")
+        assert "test" in content
+        assert "build" in content
 
 
 @pytest.mark.asyncio
@@ -198,5 +210,6 @@ async def test_read_resource_invalid_uri(
     valid_makefile: pathlib.Path,
 ) -> None:
     """Test reading with invalid URI scheme."""
-    with pytest.raises(ValueError, match="Unsupported URI scheme"):
-        await server.read_resource("invalid://scheme")
+    async with contextlib.AsyncExitStack():
+        with pytest.raises(ValueError, match="Unsupported URI scheme"):
+            await server.read_resource("invalid://scheme")
