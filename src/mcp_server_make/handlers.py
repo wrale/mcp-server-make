@@ -2,10 +2,10 @@
 
 import re
 from typing import List, Optional
+from urllib.parse import quote
 
 from pydantic import AnyUrl
 import mcp.types as types
-from yarl import URL
 
 from .exceptions import MakefileError, SecurityError
 from .execution import ExecutionManager
@@ -13,9 +13,19 @@ from .make import parse_makefile_targets
 from .security import get_validated_path
 
 
-def create_mcp_url(path: str) -> str:
-    """Create a properly formatted MCP URI string."""
-    return str(URL.build(scheme="make", path=path))
+def create_make_url(path: str) -> AnyUrl:
+    """
+    Create a properly formatted MCP URI using pydantic's AnyUrl.
+
+    Args:
+        path: The path portion of the URI
+
+    Returns:
+        AnyUrl instance for the Make server
+    """
+    # Ensure slashes are preserved but other special chars are encoded
+    safe_path = quote(path.strip("/"), safe="/")
+    return AnyUrl(f"make://{safe_path}", scheme="make")
 
 
 async def handle_list_resources() -> list[types.Resource]:
@@ -28,7 +38,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if makefile_path.exists():
             resources.append(
                 types.Resource(
-                    uri=create_mcp_url("/current/makefile"),
+                    uri=create_make_url("/current/makefile"),
                     name="Current Makefile",
                     description="Contents of the current Makefile",
                     mimeType="text/plain",
@@ -40,7 +50,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if targets:
             resources.append(
                 types.Resource(
-                    uri=create_mcp_url("/targets"),
+                    uri=create_make_url("/targets"),
                     name="Make Targets",
                     description="List of available Make targets",
                     mimeType="application/json",
@@ -66,24 +76,24 @@ async def handle_read_resource(uri: AnyUrl) -> str:
     """
     from .make import read_makefile, validate_makefile_syntax
 
-    # Convert AnyUrl to URL for proper parsing
-    url = URL(str(uri))
+    if uri.scheme != "make":
+        raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
 
-    if url.scheme != "make":
-        raise ValueError(f"Unsupported URI scheme: {url.scheme}")
+    # Safe path comparison since AnyUrl normalizes paths
+    path = uri.path.lower().strip("/")
 
     try:
-        if url.path == "/current/makefile":
-            path = get_validated_path() / "Makefile"
-            content = await read_makefile(path)
+        if path == "current/makefile":
+            file_path = get_validated_path() / "Makefile"
+            content = await read_makefile(file_path)
             validate_makefile_syntax(content)
             return content
 
-        elif url.path == "/targets":
+        elif path == "targets":
             targets = await parse_makefile_targets()
             return str(targets)  # Basic string representation for now
 
-        raise ValueError(f"Unknown resource path: {url.path}")
+        raise ValueError(f"Unknown resource path: {uri.path}")
 
     except (MakefileError, SecurityError) as e:
         raise ValueError(str(e))

@@ -1,15 +1,26 @@
 """MCP Server for GNU Make - Core functionality."""
 
 import asyncio
+import contextvars
 from typing import Any, Protocol, List
 
 from pydantic import AnyUrl
-from mcp.server import NotificationOptions, Server
+from mcp.server import (
+    NotificationOptions,
+    Server,
+    RequestContext,
+    ServerSession,
+)
 import mcp.server.stdio
 import mcp.types as types
 from mcp.server.models import InitializationOptions
 
 from . import handlers
+
+# Context variable for request handling
+request_context: contextvars.ContextVar[RequestContext[ServerSession]] = (
+    contextvars.ContextVar("request_context")
+)
 
 
 class ResourceHandlers(Protocol):
@@ -49,9 +60,21 @@ class MakeServer(Server):
     def _init_handlers(self) -> None:
         """Initialize the handler functions."""
 
+        async def _with_context(
+            context: RequestContext[ServerSession], func: Any, *args, **kwargs
+        ) -> Any:
+            """Run a handler function with the request context."""
+            token = request_context.set(context)
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                request_context.reset(token)
+
         async def _list_resources() -> List[types.Resource]:
             try:
-                return await handlers.handle_list_resources()
+                return await _with_context(
+                    self.request_context, handlers.handle_list_resources
+                )
             except Exception as e:
                 await self.request_context.session.send_log_message(
                     level="error",
@@ -61,7 +84,9 @@ class MakeServer(Server):
 
         async def _read_resource(uri: AnyUrl) -> str:
             try:
-                return await handlers.handle_read_resource(uri)
+                return await _with_context(
+                    self.request_context, handlers.handle_read_resource, uri
+                )
             except Exception as e:
                 await self.request_context.session.send_log_message(
                     level="error",
@@ -70,12 +95,14 @@ class MakeServer(Server):
                 raise
 
         async def _list_tools() -> List[types.Tool]:
-            return await handlers.handle_list_tools()
+            return await _with_context(self.request_context, handlers.handle_list_tools)
 
         async def _call_tool(
             name: str, arguments: dict | None
         ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-            return await handlers.handle_call_tool(name, arguments)
+            return await _with_context(
+                self.request_context, handlers.handle_call_tool, name, arguments
+            )
 
         self._list_resources_handler = _list_resources
         self._read_resource_handler = _read_resource
