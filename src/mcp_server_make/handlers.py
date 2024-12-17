@@ -5,11 +5,17 @@ from typing import List, Optional
 
 from pydantic import AnyUrl
 import mcp.types as types
+from yarl import URL
 
 from .exceptions import MakefileError, SecurityError
 from .execution import ExecutionManager
 from .make import parse_makefile_targets
 from .security import get_validated_path
+
+
+def create_mcp_url(path: str) -> str:
+    """Create a properly formatted MCP URI string."""
+    return str(URL.build(scheme="make", path=path))
 
 
 async def handle_list_resources() -> list[types.Resource]:
@@ -22,7 +28,7 @@ async def handle_list_resources() -> list[types.Resource]:
         if makefile_path.exists():
             resources.append(
                 types.Resource(
-                    uri=AnyUrl("make://current/makefile"),  # Fixed: Use AnyUrl
+                    uri=create_mcp_url("/current/makefile"),
                     name="Current Makefile",
                     description="Contents of the current Makefile",
                     mimeType="text/plain",
@@ -34,23 +40,21 @@ async def handle_list_resources() -> list[types.Resource]:
         if targets:
             resources.append(
                 types.Resource(
-                    uri=AnyUrl("make://targets"),  # Fixed: Use AnyUrl
+                    uri=create_mcp_url("/targets"),
                     name="Make Targets",
                     description="List of available Make targets",
                     mimeType="application/json",
                 )
             )
 
-    except Exception:
-        # Note: We can't access session here anymore since we removed the server parameter
-        pass
+    except Exception as e:
+        # Log error but continue - we want partial results if possible
+        print(f"Error listing resources: {e}")
 
     return resources
 
 
-async def handle_read_resource(
-    uri: AnyUrl,
-) -> str:  # Fixed: Changed parameter type to AnyUrl
+async def handle_read_resource(uri: AnyUrl) -> str:
     """
     Read Make-related resource content.
 
@@ -62,24 +66,29 @@ async def handle_read_resource(
     """
     from .make import read_makefile, validate_makefile_syntax
 
-    if uri.scheme != "make":
-        raise ValueError(f"Unsupported URI scheme: {uri.scheme}")
+    # Convert AnyUrl to URL for proper parsing
+    url = URL(str(uri))
+
+    if url.scheme != "make":
+        raise ValueError(f"Unsupported URI scheme: {url.scheme}")
 
     try:
-        if uri.path == "/current/makefile":
+        if url.path == "/current/makefile":
             path = get_validated_path() / "Makefile"
             content = await read_makefile(path)
             validate_makefile_syntax(content)
             return content
 
-        elif uri.path == "/targets":
+        elif url.path == "/targets":
             targets = await parse_makefile_targets()
             return str(targets)  # Basic string representation for now
 
-        raise ValueError(f"Unknown resource path: {uri.path}")
+        raise ValueError(f"Unknown resource path: {url.path}")
 
     except (MakefileError, SecurityError) as e:
         raise ValueError(str(e))
+    except Exception as e:
+        raise ValueError(f"Error reading resource: {str(e)}")
 
 
 async def handle_list_tools() -> List[types.Tool]:
