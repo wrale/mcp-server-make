@@ -157,8 +157,11 @@ async def handle_call_tool(
     Raises:
         ValueError: If tool not found or invalid arguments
     """
+    if not arguments:
+        raise ValueError("Tool arguments required")
+
     if name == "list-targets":
-        pattern = (arguments or {}).get("pattern", "*")
+        pattern = arguments.get("pattern", "*")
         targets = await parse_makefile_targets()
 
         # Apply pattern filtering if specified
@@ -180,7 +183,7 @@ async def handle_call_tool(
         ]
 
     elif name == "run-target":
-        if not arguments or "target" not in arguments:
+        if "target" not in arguments:
             raise ValueError("Target name required")
 
         target = arguments["target"]
