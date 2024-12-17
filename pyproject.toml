@@ -4,14 +4,27 @@ version = "0.1.0"
 description = "MCP Server for GNU Make"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [ "mcp>=1.1.2",]
+dependencies = [
+    "mcp>=1.1.2",
+    "pydantic>=2.10.0",
+]
+
 [[project.authors]]
 name = "Joshua M. Dotson"
 email = "contact@jmdots.com"
 
-[build-system]
-requires = [ "hatchling",]
-build-backend = "hatchling.build"
-
 [project.scripts]
 mcp-server-make = "mcp_server_make:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.13",
+    "mypy>=1.8.0",
+    "pytest>=7.4.4",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.3",
+]

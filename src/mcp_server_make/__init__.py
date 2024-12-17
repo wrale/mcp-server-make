@@ -1,9 +1,11 @@
-from . import server
-import asyncio
+"""MCP Server for GNU Make."""
 
-def main():
-    """Main entry point for the package."""
-    asyncio.run(server.main())
+from . import exceptions
+from . import make
+from . import security
+from . import execution
+from . import handlers
+from .server import main
 
-# Optionally expose other important items at package level
-__all__ = ['main', 'server']
+__version__ = "0.1.0"
+__all__ = ["main", "exceptions", "make", "security", "execution", "handlers"]
