@@ -1,16 +1,17 @@
-# MCP Make Server
+# MCP Server Make
 
 A Model Context Protocol server that provides make functionality. This server enables LLMs to execute make targets from a Makefile in a safe, controlled way.
 
 ## Overview
 
 The server exposes make functionality through the Model Context Protocol, allowing LLMs like Claude to:
-- Run make targets safely
-- Get command output
+- Run make targets safely with output capture
+- Understand and navigate build processes
+- Help with development tasks
 - Handle errors appropriately
 - Respect working directory context
 
-### Installation
+## Installation
 
 Using `uv` (recommended):
 ```bash
@@ -22,9 +23,9 @@ Using pip:
 pip install mcp-server-make
 ```
 
-### Configuration
+## Configuration
 
-#### Basic Usage
+### Basic Usage
 ```bash
 # Run with default Makefile in current directory
 mcp-server-make
@@ -33,7 +34,7 @@ mcp-server-make
 mcp-server-make --make-path /path/to/Makefile --working-dir /path/to/working/dir
 ```
 
-#### MCP Client Configuration
+### MCP Client Configuration 
 
 To use with Claude Desktop, add to your Claude configuration (`claude_desktop_config.json`):
 
@@ -48,14 +49,51 @@ To use with Claude Desktop, add to your Claude configuration (`claude_desktop_co
 }
 ```
 
-### Available Tools
+## Enhancing Development Workflows
+
+This server enables powerful development workflows by giving LLMs direct access to make functionality:
+
+### For Developers
+
+1. **Automated Assistance**
+   - Let Claude run and interpret test results 
+   - Get build system suggestions and improvements
+   - Automate repetitive development tasks
+   - Get immediate feedback on changes
+
+2. **Project Management**
+   - Let Claude handle dependency updates
+   - Automate release processes
+   - Maintain consistent code quality
+   - Track project status
+
+### For Claude
+
+1. **Self-Validation Capabilities**
+   - Run tests to verify changes: `make test`
+   - Check code quality: `make lint`
+   - Format code: `make format`
+   - Full validation: `make check`
+
+2. **Project Understanding**
+   - View project structure: `make x`
+   - Check recent changes: `make z`
+   - Full context snapshot: `make r`
+
+3. **Independent Development**
+   - Manage complete development cycles
+   - Self-contained testing and validation
+   - Build and prepare releases
+   - Generate informed commit messages
+
+## Available Tools
 
 The server exposes a single tool:
 
 - `make` - Run a make target from the Makefile
     - `target` (string, required): Target name to execute
 
-### Error Handling
+## Error Handling
 
 The server handles common errors gracefully:
 - Missing Makefile
@@ -65,29 +103,34 @@ The server handles common errors gracefully:
 
 All errors are returned with descriptive messages through the MCP protocol.
 
-### Working Directory Behavior
+## Working Directory Behavior
 
 - If `--working-dir` is specified, changes to that directory before executing make
 - If omitted, uses the directory containing the Makefile
 - Always restores original working directory after execution
 
-### Examples
+## Example Integration
 
-Example usage in Claude:
+Here's how Claude can help with development tasks:
 
 ```
-Human: Please run the "test" target in my Makefile.
+Human: Can you run our test suite and format any code that needs it?
 
-Claude: I'll use the make tool to run the test target.
+Claude: I'll help run the tests and format the code:
 
+1. First, let's format the code:
+[Calling make tool with args {"target": "format"}]
+2 files reformatted, 3 files left unchanged
+
+2. Now let's run the tests:
 [Calling make tool with args {"target": "test"}]
 Running tests...
-All tests passed!
+4 passed, 0 failed
 
-The test target executed successfully.
+All formatting and tests completed successfully. The code is now properly formatted and all tests are passing.
 ```
 
-### Troubleshooting
+## Troubleshooting
 
 Common issues:
 
@@ -96,12 +139,16 @@ Common issues:
 3. **"Tool execution failed"**: Check make target exists and command succeeds
 4. **"Permission denied"**: Verify file and directory permissions
 
-### Contributing
+## Contributing
 
-We encourage contributions to help expand and improve mcp-server-make. Whether you want to add new tools, enhance existing functionality, or improve documentation, your input is valuable.
+We welcome contributions to improve mcp-server-make! Here's how:
 
-Pull requests are welcome! Feel free to contribute new ideas, bug fixes, or enhancements to make mcp-server-make even more powerful and useful.
+1. Fork the repository
+2. Create your feature branch
+3. Make your changes
+4. Run full validation: `make check`
+5. Submit a pull request
 
-### License
+## License
 
-mcp-server-make is licensed under the MIT License. This means you are free to use, modify, and distribute the software, subject to the terms and conditions of the MIT License. For more details, please see the LICENSE file in the project repository.
+MIT License - see LICENSE file for details
