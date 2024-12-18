@@ -7,16 +7,14 @@ from typing import Any, List
 from urllib.parse import urlparse
 
 from pydantic import AnyUrl
-from mcp.server import (
-    NotificationOptions,
-    Server,
-)
+from mcp.server import Server
 import mcp.server.stdio
 import mcp.types as types
-from mcp.server.models import InitializationOptions
 
 from . import handlers
 from .exceptions import SecurityError
+from .execution import ExecutionManager
+from .make import parse_makefile_targets
 
 
 class MakeServer(Server):
@@ -35,80 +33,127 @@ class MakeServer(Server):
         if not (self.makefile_dir / "Makefile").exists():
             raise SecurityError(f"No Makefile found in directory: {self.makefile_dir}")
 
-        self._init_handlers()
-
-    def _init_handlers(self) -> None:
-        """Initialize the handler functions."""
-
-        async def _list_resources() -> List[types.Resource]:
-            try:
-                return await handlers.handle_list_resources(self.makefile_dir)
-            except Exception as e:
-                raise ValueError(str(e))
-
-        async def _read_resource(uri: AnyUrl | str) -> str:
-            try:
-                # Handle invalid URI scheme early
-                if isinstance(uri, str):
-                    parsed = urlparse(uri)
-                    if parsed.scheme != "make":
-                        raise ValueError(f"Unsupported URI scheme: {parsed.scheme}")
-                    # Only remove prefix if it's the make:// scheme
-                    uri = handlers.create_make_url(
-                        uri[7:] if uri.startswith("make://") else uri
-                    )
-
-                return await handlers.handle_read_resource(uri, self.makefile_dir)
-            except ValueError as e:
-                # Preserve original error messages
-                raise ValueError(str(e))
-            except Exception as e:
-                raise ValueError(f"Failed to read resource: {str(e)}")
-
-        async def _list_tools() -> List[types.Tool]:
-            try:
-                return await handlers.handle_list_tools()
-            except Exception as e:
-                raise ValueError(str(e))
-
-        async def _call_tool(
-            name: str,
-            arguments: dict | None,
-        ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-            try:
-                return await handlers.handle_call_tool(
-                    name, arguments, self.makefile_dir
-                )
-            except Exception as e:
-                raise ValueError(str(e))
-
-        self._list_resources_handler = _list_resources
-        self._read_resource_handler = _read_resource
-        self._list_tools_handler = _list_tools
-        self._call_tool_handler = _call_tool
-
     @property
     def list_resources(self) -> Any:
         """Return list_resources handler."""
-        return self._list_resources_handler
+        return self._list_resources
 
     @property
     def read_resource(self) -> Any:
         """Return read_resource handler."""
-        return self._read_resource_handler
+        return self._read_resource
 
-    @property
-    def list_tools(self) -> Any:
-        """Return list_tools handler."""
-        return self._list_tools_handler
+    async def _list_resources(self) -> List[types.Resource]:
+        """List available Make-related resources."""
+        try:
+            resources = await handlers.handle_list_resources(self.makefile_dir)
+            return resources
+        except Exception as e:
+            raise ValueError(f"Failed to list resources: {e}")
 
-    @property
-    def call_tool(self) -> Any:
-        """Return call_tool handler."""
-        return self._call_tool_handler
+    async def _read_resource(self, uri: AnyUrl | str) -> str:
+        """Read Make-related resource content."""
+        if isinstance(uri, str):
+            parsed = urlparse(uri)
+            if parsed.scheme != "make":
+                raise ValueError(f"Unsupported URI scheme: {parsed.scheme}")
+
+        return await handlers.handle_read_resource(uri, self.makefile_dir)
+
+    @Server.list_tools
+    async def list_tools(self) -> List[types.Tool]:
+        """List available Make-related tools.
+
+        Returns:
+            List of available tools
+        """
+        return [
+            types.Tool(
+                name="list-targets",
+                description="List available Make targets",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "pattern": {
+                            "type": "string",
+                            "description": "Optional filter pattern",
+                        }
+                    },
+                },
+            ),
+            types.Tool(
+                name="run-target",
+                description="Execute a Make target",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Target to execute",
+                        },
+                        "timeout": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 3600,
+                            "default": 300,
+                            "description": "Maximum execution time in seconds",
+                        },
+                    },
+                    "required": ["target"],
+                },
+            ),
+        ]
+
+    @Server.call_tool
+    async def call_tool(
+        self, name: str, arguments: dict | None
+    ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
+        """Execute a Make-related tool."""
+        if not arguments:
+            raise ValueError("Tool arguments required")
+
+        if name == "list-targets":
+            target_list = await parse_makefile_targets(self.makefile_dir)
+            return [
+                types.TextContent(
+                    type="text",
+                    text="\n".join(
+                        f"{t['name']}: {t['description'] or 'No description'}"
+                        for t in target_list
+                    ),
+                )
+            ]
+
+        elif name == "run-target":
+            if "target" not in arguments:
+                raise ValueError("Target name required")
+
+            target = arguments["target"]
+            timeout = min(int(arguments.get("timeout", 300)), 3600)
+
+            async with ExecutionManager(
+                base_dir=self.makefile_dir, timeout=timeout
+            ) as mgr:
+                output = await mgr.run_target(target)
+                return [types.TextContent(type="text", text=output)]
+
+        raise ValueError(f"Unknown tool: {name}")
 
 
-async def main():
+async def serve(makefile_dir: str | Path | None = None) -> None:
+    """Run the Make MCP server.
+
+    Args:
+        makefile_dir: Optional directory containing Makefile to manage
+    """
+    server = MakeServer(makefile_dir=makefile_dir)
+
+    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
+        init_options = server.create_initialization_options()
+        await server.run(read_stream, write_stream, init_options, raise_exceptions=True)
+
+
+async def main() -> None:
     """Run the server using stdin/stdout streams."""
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="MCP Server for GNU Make")
@@ -119,19 +164,7 @@ async def main():
     )
     args = parser.parse_args()
 
-    # Create server instance with configured directory
-    server = MakeServer(makefile_dir=args.makefile_dir)
-
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        init_options = InitializationOptions(
-            server_name="mcp-server-make",
-            server_version="0.1.8",
-            capabilities=server.get_capabilities(
-                notification_options=NotificationOptions(),
-                experimental_capabilities={},
-            ),
-        )
-        await server.run(read_stream, write_stream, init_options)
+    await serve(makefile_dir=args.makefile_dir)
 
 
 if __name__ == "__main__":
