@@ -3,7 +3,7 @@
 import argparse
 import asyncio
 from pathlib import Path
-from typing import Any, List
+from typing import List
 from urllib.parse import urlparse
 
 from pydantic import AnyUrl
@@ -33,17 +33,7 @@ class MakeServer(Server):
         if not (self.makefile_dir / "Makefile").exists():
             raise SecurityError(f"No Makefile found in directory: {self.makefile_dir}")
 
-    @property
-    def list_resources(self) -> Any:
-        """Return list_resources handler."""
-        return self._list_resources
-
-    @property
-    def read_resource(self) -> Any:
-        """Return read_resource handler."""
-        return self._read_resource
-
-    async def _list_resources(self) -> List[types.Resource]:
+    async def list_resources(self) -> List[types.Resource]:
         """List available Make-related resources."""
         try:
             resources = await handlers.handle_list_resources(self.makefile_dir)
@@ -51,17 +41,24 @@ class MakeServer(Server):
         except Exception as e:
             raise ValueError(f"Failed to list resources: {e}")
 
-    async def _read_resource(self, uri: AnyUrl | str) -> str:
+    async def read_resource(self, uri: AnyUrl | str) -> str:
         """Read Make-related resource content."""
-        if isinstance(uri, str):
-            parsed = urlparse(uri)
-            if parsed.scheme != "make":
-                raise ValueError(f"Unsupported URI scheme: {parsed.scheme}")
+        try:
+            # Convert string URIs to AnyUrl
+            if isinstance(uri, str):
+                parsed = urlparse(uri)
+                if parsed.scheme != "make":
+                    raise ValueError(f"Unsupported URI scheme: {parsed.scheme}")
+                uri = handlers.create_make_url(
+                    uri[7:] if uri.startswith("make://") else uri
+                )
 
-        return await handlers.handle_read_resource(uri, self.makefile_dir)
+            return await handlers.handle_read_resource(uri, self.makefile_dir)
+        except Exception as e:
+            raise ValueError(f"Failed to read resource: {e}")
 
-    @Server.list_tools
-    async def list_tools(self) -> List[types.Tool]:
+    @classmethod
+    async def list_tools(cls) -> List[types.Tool]:
         """List available Make-related tools.
 
         Returns:
@@ -104,7 +101,6 @@ class MakeServer(Server):
             ),
         ]
 
-    @Server.call_tool
     async def call_tool(
         self, name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
