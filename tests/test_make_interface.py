@@ -2,7 +2,6 @@
 
 import os
 import pathlib
-import textwrap
 import asyncio
 from typing import AsyncGenerator, Generator
 
@@ -74,18 +73,18 @@ async def mock_session() -> AsyncGenerator[ServerSession, None]:
 @pytest.fixture
 def valid_makefile(tmp_path: pathlib.Path) -> Generator[pathlib.Path, None, None]:
     """Create a valid test Makefile."""
-    content = textwrap.dedent("""
-        # Test target
-        test: ## Run tests
-            @echo "Running tests"
-            pytest
+    content = """# Test target
+test: ## Run tests
+	@echo "Running tests"
+	@echo "Success"
 
-        # Build target
-        build: test ## Build the project
-            @echo "Building..."
-    """)
+# Build target
+build: test ## Build the project
+	@echo "Building..."
+"""
 
     makefile_path = tmp_path / "Makefile"
+    # Write raw content to preserve tabs
     makefile_path.write_text(content)
 
     original_cwd = os.getcwd()
@@ -106,13 +105,11 @@ def make_server(valid_makefile: pathlib.Path) -> MakeServer:
 @pytest.fixture
 def invalid_makefile(tmp_path: pathlib.Path) -> Generator[pathlib.Path, None, None]:
     """Create an invalid test Makefile."""
-    content = textwrap.dedent("""
-        .INVALID_DIRECTIVE without colon
-        
-        test: 
-            @echo
-    """)
+    content = """.INVALID_DIRECTIVE without colon
 
+test:
+    @echo
+"""
     makefile_path = tmp_path / "Makefile"
     makefile_path.write_text(content)
     yield makefile_path
@@ -256,3 +253,15 @@ async def test_run_target_tool(make_server: MakeServer) -> None:
     )
     assert len(result) == 1
     assert "Running tests" in result[0].text
+    assert "Success" in result[0].text
+
+
+@pytest.mark.asyncio
+async def test_run_target_tool_with_dependencies(make_server: MakeServer) -> None:
+    """Test run-target tool with target having dependencies."""
+    result = await make_server.call_tool(
+        "run-target", {"target": "build", "timeout": 10}
+    )
+    assert len(result) == 1
+    assert "Running tests" in result[0].text
+    assert "Building" in result[0].text

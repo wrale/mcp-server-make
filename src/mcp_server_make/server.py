@@ -3,7 +3,6 @@
 import argparse
 import asyncio
 import os
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse, quote, unquote
@@ -16,6 +15,8 @@ from mcp.types import Resource, TextContent, Tool
 from .exceptions import MakefileError, SecurityError
 
 # Regular expression for validating Make target names
+import re
+
 VALID_TARGET_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 
@@ -184,7 +185,11 @@ class MakeServer(Server):
         if not VALID_TARGET_PATTERN.match(target):
             raise ValueError(f"Invalid target name: {target}")
 
+        original_cwd = Path.cwd()
         try:
+            # Change to Makefile directory
+            os.chdir(str(self.makefile_dir))
+
             proc = await asyncio.create_subprocess_exec(
                 "make",
                 target,
@@ -199,6 +204,9 @@ class MakeServer(Server):
             return stdout.decode()
         except asyncio.TimeoutError:
             raise MakefileError(f"Target execution exceeded {timeout}s timeout")
+        finally:
+            # Restore original working directory
+            os.chdir(str(original_cwd))
 
     @classmethod
     async def list_tools(cls) -> List[Tool]:
