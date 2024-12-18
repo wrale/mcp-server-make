@@ -1,189 +1,158 @@
-# mcp-server-make
+# MCP Server Make
 
 [![CI](https://github.com/wrale/mcp-server-make/actions/workflows/ci.yml/badge.svg)](https://github.com/wrale/mcp-server-make/actions/workflows/ci.yml)
 [![Release](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml/badge.svg)](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml)
 [![PyPI version](https://badge.fury.io/py/mcp-server-make.svg)](https://badge.fury.io/py/mcp-server-make)
 
-MCP Server for GNU Make - providing controlled and secure access to Make systems from LLMs.
+A Model Context Protocol server that provides make functionality. This server enables LLMs to execute make targets from a Makefile in a safe, controlled way.
 
-## Features
+## Overview
 
-### Resources
-- `make://current/makefile` - Access current Makefile content securely
-- `make://targets` - List available Make targets with documentation
+The server exposes make functionality through the Model Context Protocol, allowing LLMs like Claude to:
+- Run make targets safely with output capture
+- Understand and navigate build processes
+- Help with development tasks
+- Handle errors appropriately
+- Respect working directory context
 
-### Tools
-- `list-targets`: List available Make targets
-  - Returns target names and documentation
-  - Optional pattern filtering for searching targets
-- `run-target`: Execute Make targets safely
-  - Required: target name
-  - Optional: timeout (1-3600 seconds, default 300)
+## Installation
 
-## Quick Start
-
-### Prerequisites
-- Python 3.12+
-- GNU Make
-- pip or uv package manager
-
-### Claude Desktop Integration
-
-Add to your Claude Desktop configuration:
-
-MacOS:
+Using `uv` (recommended):
 ```bash
-nano ~/Library/Application\ Support/Claude/claude_desktop_config.json
+uv pip install mcp-server-make
 ```
 
-Windows:
+Using pip:
 ```bash
-notepad %APPDATA%\Claude\claude_desktop_config.json
+pip install mcp-server-make
 ```
 
-Add configuration:
+## Configuration
+
+### Basic Usage
+```bash
+# Run with default Makefile in current directory
+mcp-server-make
+
+# Run with specific Makefile and working directory
+mcp-server-make --make-path /path/to/Makefile --working-dir /path/to/working/dir
+```
+
+### MCP Client Configuration 
+
+To use with Claude Desktop, add to your Claude configuration (`claude_desktop_config.json`):
+
 ```json
 {
   "mcpServers": {
-    "mcp-server-make": {
-      "command": "uvx",
-      "args": [
-        "mcp-server-make",
-        "--makefile-dir", "/path/to/project"
-      ]
+    "make": {
+      "command": "mcp-server-make",
+      "args": ["--make-path", "/absolute/path/to/Makefile", "--working-dir", "/absolute/path/to/working/dir"]
     }
   }
 }
 ```
-- `--makefile-dir`: Directory containing the `Makefile` to manage
 
-Restart Claude Desktop to activate the Make server.
+## Enhancing Development Workflows
 
-## Usage Examples
+This server enables powerful development workflows by giving LLMs direct access to make functionality:
 
-### List Available Targets
+### For Developers
+
+1. **Automated Assistance**
+   - Let Claude run and interpret test results 
+   - Get build system suggestions and improvements
+   - Automate repetitive development tasks
+   - Get immediate feedback on changes
+
+2. **Project Management**
+   - Let Claude handle dependency updates
+   - Automate release processes
+   - Maintain consistent code quality
+   - Track project status
+
+### For Claude
+
+1. **Self-Validation Capabilities**
+   - Run tests to verify changes: `make test`
+   - Check code quality: `make lint`
+   - Format code: `make format`
+   - Full validation: `make check`
+
+2. **Project Understanding**
+   - View project structure: `make x`
+   - Check recent changes: `make z`
+   - Full context snapshot: `make r`
+
+3. **Independent Development**
+   - Manage complete development cycles
+   - Self-contained testing and validation
+   - Build and prepare releases
+   - Generate informed commit messages
+
+## Available Tools
+
+The server exposes a single tool:
+
+- `make` - Run a make target from the Makefile
+    - `target` (string, required): Target name to execute
+
+## Error Handling
+
+The server handles common errors gracefully:
+- Missing Makefile
+- Invalid working directory
+- Failed make commands
+- Invalid targets
+
+All errors are returned with descriptive messages through the MCP protocol.
+
+## Working Directory Behavior
+
+- If `--working-dir` is specified, changes to that directory before executing make
+- If omitted, uses the directory containing the Makefile
+- Always restores original working directory after execution
+
+## Example Integration
+
+Here's how Claude can help with development tasks:
+
 ```
-I see you have a Makefile. Can you list the available targets?
+Human: Can you run our test suite and format any code that needs it?
+
+Claude: I'll help run the tests and format the code:
+
+1. First, let's format the code:
+[Calling make tool with args {"target": "format"}]
+2 files reformatted, 3 files left unchanged
+
+2. Now let's run the tests:
+[Calling make tool with args {"target": "test"}]
+Running tests...
+4 passed, 0 failed
+
+All formatting and tests completed successfully. The code is now properly formatted and all tests are passing.
 ```
 
-### View Target Documentation
-```
-What does the 'build' target do?
-```
+## Troubleshooting
 
-### Run Tests
-```
-Please run the test target with a 2 minute timeout.
-```
+Common issues:
 
-### View Makefile
-```
-Show me the current Makefile content.
-```
-
-## Development
-
-### Local Development Setup
-```bash
-# Clone repository
-git clone https://github.com/wrale/mcp-server-make
-cd mcp-server-make
-
-# Create virtual environment
-uv venv
-source .venv/bin/activate  # Unix/MacOS
-.venv\Scripts\activate     # Windows
-
-# Install dependencies
-make dev-setup
-
-# Run tests and checks
-make check
-```
-
-### Testing with MCP Inspector
-
-Test the server using the MCP Inspector:
-```bash
-npx @modelcontextprotocol/inspector uv --directory /path/to/mcp-server-make run mcp-server-make --makefile-dir /path/to/project
-```
-
-## Security Features
-
-MCP Server for GNU Make implements several security controls:
-
-- Path validation and directory boundary enforcement
-- Target name sanitization and command validation
-- Resource and timeout limits for command execution
-- Restricted environment access and cleanup
-- Error isolation and safe propagation
-
-## Behavior Details
-
-### Resource Access
-- Makefile content is read-only and validated
-- Target listing includes names and documentation
-- Full path validation prevents traversal attacks
-- Resources require proper make:// URIs
-
-### Tool Execution
-- Targets are sanitized and validated
-- Execution occurs in controlled environment
-- Timeouts prevent infinite execution
-- Clear error messages for failures
-- Resource cleanup after execution
-
-### Error Handling
-- Type-safe error propagation
-- Context-aware error messages
-- Clean error isolation
-- No error leakage
-
-## Known Limitations
-
-Version 0.1.5 has the following scope limitations:
-
-- Read-only Makefile access
-- Single Makefile per working directory
-- No support for include directives
-- Basic target pattern matching only
-- No variable expansion in documentation
+1. **"Makefile not found"**: Verify the --make-path points to a valid Makefile
+2. **"Working directory error"**: Ensure --working-dir exists and is accessible
+3. **"Tool execution failed"**: Check make target exists and command succeeds
+4. **"Permission denied"**: Verify file and directory permissions
 
 ## Contributing
 
+We welcome contributions to improve mcp-server-make! Here's how:
+
 1. Fork the repository
-2. Create a feature branch
-3. Add tests for new features
-4. Ensure all checks pass (`make check`)
+2. Create your feature branch
+3. Make your changes
+4. Run full validation: `make check`
 5. Submit a pull request
 
 ## License
 
-MIT - See LICENSE file for details.
-
-## Support
-
-- GitHub Issues: Bug reports and feature requests
-- GitHub Discussions: Questions and community help
-
-## Version History
-
-### 0.1.7
-
-- Update README.
-
-### 0.1.6
-
-- Fixed an issue with pyproject.toml
-
-### 0.1.5
-- Version bump
-- Added workflow status badges
-- Bug fixes and improvements
-
-### 0.1.0
-- Initial stable release
-- Basic Makefile access and target execution
-- Core security controls
-- Claude Desktop integration
-- Configurable Makefile directory
+MIT License - see LICENSE file for details
