@@ -67,7 +67,7 @@ lint: ## Run linters
 	$(MYPY) $(SRC_DIR)/$(PACKAGE_NAME)
 
 test: ## Run tests
-	$(PYTEST) $(TESTS_DIR)
+	$(PYTEST) $(TESTS_DIR) --no-header -W ignore::DeprecationWarning
 
 check: format lint test ## Run all checks (format, lint, test)
 
