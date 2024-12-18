@@ -4,7 +4,7 @@ from typing import AsyncIterator, Iterator
 
 import pytest
 import pytest_asyncio
-from mcp.client import Client
+from mcp.client.client import Client
 from mcp.client.stdio import StdioClientTransport
 
 
