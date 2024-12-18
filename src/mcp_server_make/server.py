@@ -3,7 +3,7 @@
 import argparse
 import asyncio
 from pathlib import Path
-from typing import List
+from typing import Any, List
 from urllib.parse import urlparse
 
 from pydantic import AnyUrl
@@ -33,16 +33,21 @@ class MakeServer(Server):
         if not (self.makefile_dir / "Makefile").exists():
             raise SecurityError(f"No Makefile found in directory: {self.makefile_dir}")
 
-    async def list_resources(self) -> List[types.Resource]:
-        """List available Make-related resources."""
+    async def _list_resources(self) -> List[types.Resource]:
+        """Internal method to list available Make-related resources."""
         try:
             resources = await handlers.handle_list_resources(self.makefile_dir)
             return resources
         except Exception as e:
             raise ValueError(f"Failed to list resources: {e}")
 
-    async def read_resource(self, uri: AnyUrl | str) -> str:
-        """Read Make-related resource content."""
+    @property
+    def list_resources(self) -> Any:
+        """List available Make-related resources."""
+        return self._list_resources
+
+    async def _read_resource(self, uri: AnyUrl | str) -> str:
+        """Internal method to read Make-related resource content."""
         try:
             # Convert string URIs to AnyUrl
             if isinstance(uri, str):
@@ -56,6 +61,11 @@ class MakeServer(Server):
             return await handlers.handle_read_resource(uri, self.makefile_dir)
         except Exception as e:
             raise ValueError(f"Failed to read resource: {e}")
+
+    @property
+    def read_resource(self) -> Any:
+        """Read Make-related resource content."""
+        return self._read_resource
 
     @classmethod
     async def list_tools(cls) -> List[types.Tool]:
@@ -101,10 +111,10 @@ class MakeServer(Server):
             ),
         ]
 
-    async def call_tool(
+    async def _call_tool(
         self, name: str, arguments: dict | None
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
-        """Execute a Make-related tool."""
+        """Internal method to execute a Make-related tool."""
         if not arguments:
             raise ValueError("Tool arguments required")
 
@@ -134,6 +144,11 @@ class MakeServer(Server):
                 return [types.TextContent(type="text", text=output)]
 
         raise ValueError(f"Unknown tool: {name}")
+
+    @property
+    def call_tool(self) -> Any:
+        """Execute a Make-related tool."""
+        return self._call_tool
 
 
 async def serve(makefile_dir: str | Path | None = None) -> None:
