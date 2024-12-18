@@ -26,7 +26,9 @@ dev = [
     "ruff>=0.7.3",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
-    "pytest-cov>=4.1.0"
+    "pytest-cov>=4.1.0",
+    "mypy>=1.8.0",
+    "types-setuptools>=69.0.0"
 ]
 
 [project.scripts]
@@ -35,6 +37,21 @@ mcp-server-make = "mcp_server_make:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
