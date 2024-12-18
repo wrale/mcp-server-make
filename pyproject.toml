@@ -1,6 +1,6 @@
 [project]
 name = "mcp-server-make"
-version = "0.1.5"
+version = "0.1.6"
 description = "MCP Server for GNU Make"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -37,7 +37,7 @@ Changelog = "https://github.com/wrale/mcp-server-make/blob/main/CHANGELOG.md"
 mcp-server-make = "mcp_server_make:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build]
@@ -46,9 +46,14 @@ include = [
     "README.md",
     "LICENSE",
 ]
+exclude = [
+    "tests/*",
+    "**/__pycache__",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mcp_server_make"]
+only-include = ["src/mcp_server_make"]
 
 [project.optional-dependencies]
 dev = [
