@@ -49,7 +49,8 @@ To use with Claude Desktop, add to your Claude configuration (`claude_desktop_co
       "command": "uvx",
       "args": [
         "mcp-server-make",
-        "--make-path", "/absolute/path/to/Makefile"
+        "--make-path", "/absolute/path/to/Makefile",
+        "--working-dir", "/absolute/path/to/working/dir"
       ]
     }
   }
