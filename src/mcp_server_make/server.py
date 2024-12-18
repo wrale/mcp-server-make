@@ -1,4 +1,6 @@
-from typing import Annotated, Optional
+"""MCP server implementation for make functionality."""
+
+from typing import Any, Dict, List, Optional
 import os
 import asyncio
 from subprocess import PIPE
@@ -19,12 +21,7 @@ from pydantic import BaseModel, Field
 class Make(BaseModel):
     """Parameters for running make."""
 
-    target: Annotated[
-        str,
-        Field(
-            description="Make target to run",
-        ),
-    ]
+    target: str = Field(description="Make target to run")
 
 
 async def serve(
@@ -35,6 +32,10 @@ async def serve(
     Args:
         make_path: Optional path to Makefile
         working_dir: Optional working directory
+
+    Raises:
+        McpError: If the Makefile cannot be found at the specified path
+        Exception: For other unexpected errors during server operation
     """
     server = Server("mcp-make")
 
@@ -48,17 +49,34 @@ async def serve(
         raise McpError(INVALID_PARAMS, f"Makefile not found at {make_path}")
 
     @server.list_tools()
-    async def list_tools() -> list[Tool]:
+    async def list_tools() -> List[Tool]:
+        """List available tools.
+
+        Returns:
+            List of available tools, currently only the make tool.
+        """
         return [
             Tool(
                 name="make",
-                description="""Run a make target from the Makefile""",
+                description="Run a make target from the Makefile",
                 inputSchema=Make.model_json_schema(),
             )
         ]
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: dict) -> list[TextContent]:
+    async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Execute a tool.
+
+        Args:
+            name: Name of the tool to execute
+            arguments: Arguments for the tool
+
+        Returns:
+            List of text content with tool execution results
+
+        Raises:
+            McpError: If the tool is unknown or arguments are invalid
+        """
         if name != "make":
             raise McpError(INVALID_PARAMS, f"Unknown tool: {name}")
 
@@ -83,13 +101,30 @@ async def serve(
         return [TextContent(type="text", text=stdout.decode())]
 
     @server.list_prompts()
-    async def list_prompts() -> list[Prompt]:
+    async def list_prompts() -> List[Prompt]:
+        """List available prompts.
+
+        Returns:
+            Empty list as no prompts are currently supported.
+        """
         return []
 
     @server.get_prompt()
-    async def get_prompt(name: str, arguments: dict | None) -> GetPromptResult:
+    async def get_prompt(
+        name: str, arguments: Optional[Dict[str, Any]]
+    ) -> GetPromptResult:
+        """Get a prompt by name.
+
+        Args:
+            name: Name of the prompt
+            arguments: Optional arguments for the prompt
+
+        Raises:
+            McpError: Always raises as no prompts are currently supported
+        """
         raise McpError(INVALID_PARAMS, f"Unknown prompt: {name}")
 
     options = server.create_initialization_options()
-    async with stdio_server() as (read_stream, write_stream):
+    async with stdio_server() as streams:
+        read_stream, write_stream = streams
         await server.run(read_stream, write_stream, options, raise_exceptions=True)
