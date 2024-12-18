@@ -32,10 +32,10 @@ pip install mcp-server-make
 ### Basic Usage
 ```bash
 # Run with default Makefile in current directory
-mcp-server-make
+uvx mcp-server-make
 
 # Run with specific Makefile and working directory
-mcp-server-make --make-path /path/to/Makefile --working-dir /path/to/working/dir
+uvx mcp-server-make --make-path /path/to/Makefile --working-dir /path/to/working/dir
 ```
 
 ### MCP Client Configuration 
@@ -46,8 +46,11 @@ To use with Claude Desktop, add to your Claude configuration (`claude_desktop_co
 {
   "mcpServers": {
     "make": {
-      "command": "mcp-server-make",
-      "args": ["--make-path", "/absolute/path/to/Makefile", "--working-dir", "/absolute/path/to/working/dir"]
+      "command": "uvx",
+      "args": [
+        "mcp-server-make",
+        "--make-path", "/absolute/path/to/Makefile"
+      ]
     }
   }
 }
