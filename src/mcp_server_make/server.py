@@ -3,6 +3,7 @@
 from typing import Any, Dict, List, Optional
 import os
 import asyncio
+import logging
 from subprocess import PIPE
 
 from mcp.shared.exceptions import McpError
@@ -16,6 +17,10 @@ from mcp.types import (
     INVALID_PARAMS,
 )
 from pydantic import BaseModel, Field
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 class Make(BaseModel):
@@ -42,11 +47,15 @@ async def serve(
     # Set working directory
     if working_dir:
         os.chdir(working_dir)
+        logger.info(f"Changed working directory to: {working_dir}")
 
     # Set make path
     make_path = make_path or "Makefile"
     if not os.path.exists(make_path):
+        logger.error(f"Makefile not found at: {make_path}")
         raise McpError(INVALID_PARAMS, f"Makefile not found at {make_path}")
+
+    logger.info(f"Using Makefile at: {make_path}")
 
     @server.list_tools()
     async def list_tools() -> List[Tool]:
@@ -78,27 +87,63 @@ async def serve(
             McpError: If the tool is unknown or arguments are invalid
         """
         if name != "make":
+            logger.error(f"Unknown tool requested: {name}")
             raise McpError(INVALID_PARAMS, f"Unknown tool: {name}")
 
         try:
             args = Make(**arguments)
         except Exception as e:
+            logger.error(f"Invalid arguments for make tool: {str(e)}")
             raise McpError(INVALID_PARAMS, str(e))
 
-        # Run make command
-        proc = await asyncio.create_subprocess_exec(
-            "make", "-f", make_path, args.target, stdout=PIPE, stderr=PIPE
-        )
-        stdout, stderr = await proc.communicate()
+        logger.info(f"Running make target: {args.target}")
 
-        if proc.returncode != 0:
+        try:
+            # Run make command with timeout
+            proc = await asyncio.create_subprocess_exec(
+                "make", "-f", make_path, args.target, stdout=PIPE, stderr=PIPE
+            )
+
+            try:
+                stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+            except asyncio.TimeoutError:
+                try:
+                    proc.terminate()
+                    await proc.wait()
+                except Exception as e:
+                    logger.error(f"Error terminating make process: {e}")
+                logger.error("Make command timed out after 300 seconds")
+                return [
+                    TextContent(
+                        type="text", text="Make command timed out after 300 seconds"
+                    )
+                ]
+
+            if proc.returncode != 0:
+                error_msg = stderr.decode() if stderr else "Unknown error occurred"
+                logger.error(f"Make command failed: {error_msg}")
+                # Format the error message to be more readable
+                formatted_error = (
+                    f"Make failed with exit code {proc.returncode}:\n{error_msg}"
+                )
+                return [TextContent(type="text", text=formatted_error)]
+
+            output = stdout.decode()
+            logger.info(
+                f"Make command completed successfully for target: {args.target}"
+            )
+            return [TextContent(type="text", text=output)]
+
+        except FileNotFoundError as e:
+            logger.error(f"Make executable not found: {e}")
             return [
                 TextContent(
-                    type="text", text=f"Make failed with error: {stderr.decode()}"
+                    type="text", text="Make command failed: make executable not found"
                 )
             ]
-
-        return [TextContent(type="text", text=stdout.decode())]
+        except Exception as e:
+            logger.error(f"Unexpected error running make: {str(e)}")
+            return [TextContent(type="text", text=f"Make command failed: {str(e)}")]
 
     @server.list_prompts()
     async def list_prompts() -> List[Prompt]:
@@ -122,9 +167,14 @@ async def serve(
         Raises:
             McpError: Always raises as no prompts are currently supported
         """
+        logger.error(f"Unknown prompt requested: {name}")
         raise McpError(INVALID_PARAMS, f"Unknown prompt: {name}")
 
     options = server.create_initialization_options()
     async with stdio_server() as streams:
         read_stream, write_stream = streams
-        await server.run(read_stream, write_stream, options, raise_exceptions=True)
+        try:
+            await server.run(read_stream, write_stream, options, raise_exceptions=True)
+        except Exception as e:
+            logger.error(f"Server error: {str(e)}")
+            raise
