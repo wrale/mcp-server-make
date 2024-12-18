@@ -1,8 +1,9 @@
 """MCP server implementation for make functionality."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 import os
 import asyncio
+from asyncio import StreamReader
 from subprocess import PIPE
 import sys
 
@@ -105,19 +106,26 @@ async def serve(
             stdout_data = bytearray()
             stderr_data = bytearray()
 
-            async def read_stream(
-                stream: asyncio.StreamReader, buffer: bytearray
-            ) -> None:
+            async def read_stream(stream: StreamReader, buffer: bytearray) -> None:
                 while True:
                     chunk = await stream.read(8192)
                     if not chunk:
                         break
                     buffer.extend(chunk)
 
-            async with asyncio.TaskGroup() as tg:
-                stdout_task = tg.create_task(read_stream(proc.stdout, stdout_data))
-                stderr_task = tg.create_task(read_stream(proc.stderr, stderr_data))
-                await proc.wait()
+            # Create tasks manually for better type safety
+            tasks = [
+                asyncio.create_task(
+                    read_stream(cast(StreamReader, proc.stdout), stdout_data)
+                ),
+                asyncio.create_task(
+                    read_stream(cast(StreamReader, proc.stderr), stderr_data)
+                ),
+                asyncio.create_task(proc.wait()),
+            ]
+
+            # Wait for all tasks to complete
+            await asyncio.gather(*tasks)
 
             stderr_text = stderr_data.decode() if stderr_data else ""
             stdout_text = stdout_data.decode() if stdout_data else ""
@@ -132,14 +140,19 @@ async def serve(
                         proc.kill()
                 except Exception:
                     pass
+
+            # Cancel any remaining tasks
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
             raise
 
         except Exception as e:
-            # Handle any other errors, including ExceptionGroup from TaskGroup
-            if isinstance(e, ExceptionGroup):
-                error_msg = "\n".join(str(exc) for exc in e.exceptions)
-            else:
-                error_msg = str(e)
+            error_lines = [str(e)]
+            if hasattr(e, "__context__") and e.__context__:
+                error_lines.append(f"Caused by: {str(e.__context__)}")
+            error_msg = "\n".join(error_lines)
 
             return [
                 TextContent(
