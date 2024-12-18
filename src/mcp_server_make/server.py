@@ -10,7 +10,14 @@ from urllib.parse import urlparse, quote, unquote
 from pydantic import AnyUrl
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Resource, TextContent, Tool
+from mcp.types import (
+    Resource,
+    TextContent,
+    Tool,
+    Prompt,
+    PromptMessage,
+    GetPromptResult,
+)
 
 from .exceptions import MakefileError, SecurityError
 
@@ -246,6 +253,35 @@ class MakeServer(Server):
     def call_tool(self) -> Any:
         """Execute a Make-related tool."""
         return self._call_tool
+
+    async def _list_prompts(self) -> List[Prompt]:
+        """List available prompts (currently none)."""
+        return []
+
+    @property
+    def list_prompts(self) -> Any:
+        """List available prompts (currently none)."""
+        return self._list_prompts
+
+    async def _get_prompt(self, name: str, arguments: dict | None) -> GetPromptResult:
+        """Handle prompt requests (currently none supported)."""
+        return GetPromptResult(
+            description="No prompts available",
+            messages=[
+                PromptMessage(
+                    role="user",
+                    content=TextContent(
+                        type="text",
+                        text="This server does not support any prompts.",
+                    ),
+                )
+            ],
+        )
+
+    @property
+    def get_prompt(self) -> Any:
+        """Handle prompt requests (currently none supported)."""
+        return self._get_prompt
 
     @classmethod
     async def list_tools(cls) -> List[Tool]:
