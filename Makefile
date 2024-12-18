@@ -106,3 +106,6 @@ r: ## Combine tree, make all, git log, and codestate outputs with separators
 		echo -e "\n=== Check Output ==="; \
 		make check; \
 	} 2>&1 | $(COPY_TO_CLIPBOARD)
+
+error: ## Run an erroneous command for test purposes.
+	error
