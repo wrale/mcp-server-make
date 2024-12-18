@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import os
 import asyncio
 from subprocess import PIPE
+import sys
 
 from mcp.shared.exceptions import McpError
 from mcp.server import Server
@@ -82,6 +83,7 @@ async def serve(
         except Exception as e:
             return [TextContent(type="text", text=f"Invalid arguments: {str(e)}")]
 
+        proc = None
         try:
             # Run make command
             proc = await asyncio.create_subprocess_exec(
@@ -100,10 +102,29 @@ async def serve(
             ]
 
         try:
-            stdout, stderr = await proc.communicate()
+            stdout_data = bytearray()
+            stderr_data = bytearray()
+
+            async def read_stream(
+                stream: asyncio.StreamReader, buffer: bytearray
+            ) -> None:
+                while True:
+                    chunk = await stream.read(8192)
+                    if not chunk:
+                        break
+                    buffer.extend(chunk)
+
+            async with asyncio.TaskGroup() as tg:
+                stdout_task = tg.create_task(read_stream(proc.stdout, stdout_data))
+                stderr_task = tg.create_task(read_stream(proc.stderr, stderr_data))
+                await proc.wait()
+
+            stderr_text = stderr_data.decode() if stderr_data else ""
+            stdout_text = stdout_data.decode() if stdout_data else ""
+
         except asyncio.CancelledError:
-            # Handle task cancellation
-            if proc.returncode is None:
+            # Handle cancellation by cleaning up the subprocess
+            if proc and proc.returncode is None:
                 try:
                     proc.terminate()
                     await asyncio.sleep(0.1)
@@ -112,13 +133,19 @@ async def serve(
                 except Exception:
                     pass
             raise
-        except Exception as e:
-            return [
-                TextContent(type="text", text=f"Error during make execution: {str(e)}")
-            ]
 
-        stderr_text = stderr.decode() if stderr else ""
-        stdout_text = stdout.decode() if stdout else ""
+        except Exception as e:
+            # Handle any other errors, including ExceptionGroup from TaskGroup
+            if isinstance(e, ExceptionGroup):
+                error_msg = "\n".join(str(exc) for exc in e.exceptions)
+            else:
+                error_msg = str(e)
+
+            return [
+                TextContent(
+                    type="text", text=f"Error during make execution: {error_msg}"
+                )
+            ]
 
         if proc.returncode != 0:
             return [
@@ -154,7 +181,12 @@ async def serve(
         """
         raise McpError(INVALID_PARAMS, f"Unknown prompt: {name}")
 
-    options = server.create_initialization_options()
-    async with stdio_server() as streams:
-        read_stream, write_stream = streams
-        await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    try:
+        options = server.create_initialization_options()
+        async with stdio_server() as streams:
+            read_stream, write_stream = streams
+            await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    except Exception as e:
+        print(f"Server error: {str(e)}", file=sys.stderr)
+        # Use a clean exit to avoid unhandled exception messages
+        sys.exit(1)
