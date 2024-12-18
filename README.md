@@ -27,18 +27,6 @@ MCP Server for GNU Make - providing controlled and secure access to Make systems
 - GNU Make
 - pip or uv package manager
 
-### Installation
-
-Using uv (recommended):
-```bash
-uvx mcp-server-make
-```
-
-Using pip:
-```bash
-pip install mcp-server-make
-```
-
 ### Claude Desktop Integration
 
 Add to your Claude Desktop configuration:
@@ -58,21 +46,16 @@ Add configuration:
 {
   "mcpServers": {
     "mcp-server-make": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "--directory", 
-        "/path/to/server",
-        "run",
-        "mcp-server-make", 
+        "mcp-server-make",
         "--makefile-dir", "/path/to/project"
       ]
     }
   }
 }
 ```
-
-- `--directory`: Path to the installed mcp-server-make package
-- `--makefile-dir`: Directory containing the Makefile to manage
+- `--makefile-dir`: Directory containing the `Makefile` to manage
 
 Restart Claude Desktop to activate the Make server.
 
@@ -127,7 +110,7 @@ npx @modelcontextprotocol/inspector uv --directory /path/to/mcp-server-make run 
 
 ## Security Features
 
-Version 0.1.5 implements several security controls:
+MCP Server for GNU Make implements several security controls:
 
 - Path validation and directory boundary enforcement
 - Target name sanitization and command validation
@@ -184,6 +167,14 @@ MIT - See LICENSE file for details.
 - GitHub Discussions: Questions and community help
 
 ## Version History
+
+### 0.1.7
+
+- Update README.
+
+### 0.1.6
+
+- Fixed an issue with pyproject.toml
 
 ### 0.1.5
 - Version bump

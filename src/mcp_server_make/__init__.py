@@ -9,7 +9,7 @@ from . import execution
 from . import handlers
 from .server import main as async_main
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 __all__ = ["main", "exceptions", "make", "security", "execution", "handlers"]
 
 
