@@ -1,5 +1,9 @@
 # MCP Server Make
 
+[![CI](https://github.com/wrale/mcp-server-make/actions/workflows/ci.yml/badge.svg)](https://github.com/wrale/mcp-server-make/actions/workflows/ci.yml)
+[![Release](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml/badge.svg)](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml)
+[![PyPI version](https://badge.fury.io/py/mcp-server-make.svg)](https://badge.fury.io/py/mcp-server-make)
+
 A Model Context Protocol server that provides make functionality. This server enables LLMs to execute make targets from a Makefile in a safe, controlled way.
 
 ## Overview
