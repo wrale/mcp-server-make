@@ -1,7 +1,6 @@
 """Test the core Make interface functionality."""
 
 import os
-from pathlib import Path
 import pathlib
 import textwrap
 import asyncio
@@ -13,13 +12,7 @@ from mcp.server import ServerSession
 from mcp.server.models import InitializationOptions
 
 from mcp_server_make.exceptions import MakefileError, SecurityError
-from mcp_server_make.security import get_validated_path
-from mcp_server_make.make import (
-    read_makefile,
-    validate_makefile_syntax,
-    parse_makefile_targets,
-)
-from mcp_server_make.server import MakeServer
+from mcp_server_make.server import MakeServer, get_validated_path
 
 
 class MockStream:
@@ -142,39 +135,48 @@ def test_get_validated_path_outside_project(tmp_path: pathlib.Path) -> None:
 
 # Makefile reading and validation tests
 @pytest.mark.asyncio
-async def test_read_valid_makefile(valid_makefile: pathlib.Path) -> None:
+async def test_read_valid_makefile(
+    make_server: MakeServer, valid_makefile: pathlib.Path
+) -> None:
     """Test reading valid Makefile content."""
-    content = await read_makefile(valid_makefile)
+    content = await make_server.read_makefile(valid_makefile)
     assert "test:" in content
     assert "build:" in content
 
 
 @pytest.mark.asyncio
-async def test_read_nonexistent_makefile(tmp_path: pathlib.Path) -> None:
+async def test_read_nonexistent_makefile(
+    make_server: MakeServer, tmp_path: pathlib.Path
+) -> None:
     """Test error handling for missing Makefiles."""
     with pytest.raises(MakefileError, match="Failed to read Makefile"):
-        await read_makefile(tmp_path / "NonexistentMakefile")
+        await make_server.read_makefile(tmp_path / "NonexistentMakefile")
 
 
-def test_validate_makefile_syntax_valid(valid_makefile: pathlib.Path) -> None:
+def test_validate_makefile_syntax_valid(
+    make_server: MakeServer, valid_makefile: pathlib.Path
+) -> None:
     """Test Makefile syntax validation accepts valid content."""
     content = valid_makefile.read_text()
-    assert validate_makefile_syntax(content) is True
+    assert make_server.validate_makefile_syntax(content) is True
 
 
-def test_validate_makefile_syntax_invalid(invalid_makefile: pathlib.Path) -> None:
+def test_validate_makefile_syntax_invalid(
+    make_server: MakeServer, invalid_makefile: pathlib.Path
+) -> None:
     """Test Makefile syntax validation rejects invalid content."""
     content = invalid_makefile.read_text()
     with pytest.raises(MakefileError):
-        validate_makefile_syntax(content)
+        make_server.validate_makefile_syntax(content)
 
 
 # Target parsing tests
 @pytest.mark.asyncio
-async def test_parse_makefile_targets(valid_makefile: pathlib.Path) -> None:
+async def test_parse_makefile_targets(
+    make_server: MakeServer, valid_makefile: pathlib.Path
+) -> None:
     """Test extraction of Make targets from valid Makefile."""
-    makefile_dir = os.path.dirname(valid_makefile)
-    targets = await parse_makefile_targets(Path(makefile_dir))
+    targets = await make_server.parse_makefile_targets()
 
     target_names = {t["name"] for t in targets}
     assert "test" in target_names
@@ -233,3 +235,24 @@ async def test_read_resource_invalid_uri(
     """Test error handling for invalid resource URIs."""
     with pytest.raises(ValueError, match="Unsupported URI scheme"):
         await make_server.read_resource("invalid://scheme")
+
+
+# Tool tests
+@pytest.mark.asyncio
+async def test_list_targets_tool(make_server: MakeServer) -> None:
+    """Test list-targets tool."""
+    result = await make_server.call_tool("list-targets", {"pattern": "*"})
+    assert len(result) == 1
+    content = result[0].text
+    assert "test:" in content
+    assert "build:" in content
+
+
+@pytest.mark.asyncio
+async def test_run_target_tool(make_server: MakeServer) -> None:
+    """Test run-target tool."""
+    result = await make_server.call_tool(
+        "run-target", {"target": "test", "timeout": 10}
+    )
+    assert len(result) == 1
+    assert "Running tests" in result[0].text
