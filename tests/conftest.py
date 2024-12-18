@@ -4,6 +4,8 @@ from typing import AsyncIterator, Iterator
 
 import pytest
 import pytest_asyncio
+from mcp.client import Client
+from mcp.client.stdio import StdioClientTransport
 
 
 @pytest.fixture
@@ -33,13 +35,39 @@ dependency-target: base-target
 
 
 @pytest_asyncio.fixture
-async def server_with_makefile(test_makefile: str) -> AsyncIterator[tuple[str, str]]:
-    """Fixture that provides the server with a test Makefile."""
+async def mcp_client(test_makefile: str) -> AsyncIterator[tuple[Client, str, str]]:
+    """Fixture that provides a connected MCP client with test Makefile."""
     current_dir = os.getcwd()
     temp_dir = tempfile.mkdtemp()
-    os.chdir(temp_dir)
+
+    client = Client(
+        {
+            "name": "test-client",
+            "version": "0.1.0",
+        },
+        {
+            "capabilities": {},
+        },
+    )
+
+    transport = StdioClientTransport(
+        {
+            "command": "python",
+            "args": [
+                "-m",
+                "mcp_server_make",
+                "--make-path",
+                test_makefile,
+                "--working-dir",
+                temp_dir,
+            ],
+        }
+    )
+
+    await client.connect(transport)
 
     try:
-        yield test_makefile, temp_dir
+        yield client, test_makefile, temp_dir
     finally:
+        await transport.close()
         os.chdir(current_dir)
