@@ -1,9 +1,11 @@
 """MCP server implementation for make functionality."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 import os
 import asyncio
+from asyncio import StreamReader
 from subprocess import PIPE
+import sys
 
 from mcp.shared.exceptions import McpError
 from mcp.server import Server
@@ -82,6 +84,7 @@ async def serve(
         except Exception as e:
             return [TextContent(type="text", text=f"Invalid arguments: {str(e)}")]
 
+        proc = None
         try:
             # Run make command
             proc = await asyncio.create_subprocess_exec(
@@ -100,10 +103,36 @@ async def serve(
             ]
 
         try:
-            stdout, stderr = await proc.communicate()
+            stdout_data = bytearray()
+            stderr_data = bytearray()
+
+            async def read_stream(stream: StreamReader, buffer: bytearray) -> None:
+                while True:
+                    chunk = await stream.read(8192)
+                    if not chunk:
+                        break
+                    buffer.extend(chunk)
+
+            # Create tasks manually for better type safety
+            tasks = [
+                asyncio.create_task(
+                    read_stream(cast(StreamReader, proc.stdout), stdout_data)
+                ),
+                asyncio.create_task(
+                    read_stream(cast(StreamReader, proc.stderr), stderr_data)
+                ),
+                asyncio.create_task(proc.wait()),
+            ]
+
+            # Wait for all tasks to complete
+            await asyncio.gather(*tasks)
+
+            stderr_text = stderr_data.decode() if stderr_data else ""
+            stdout_text = stdout_data.decode() if stdout_data else ""
+
         except asyncio.CancelledError:
-            # Handle task cancellation
-            if proc.returncode is None:
+            # Handle cancellation by cleaning up the subprocess
+            if proc and proc.returncode is None:
                 try:
                     proc.terminate()
                     await asyncio.sleep(0.1)
@@ -111,14 +140,25 @@ async def serve(
                         proc.kill()
                 except Exception:
                     pass
-            raise
-        except Exception as e:
-            return [
-                TextContent(type="text", text=f"Error during make execution: {str(e)}")
-            ]
 
-        stderr_text = stderr.decode() if stderr else ""
-        stdout_text = stdout.decode() if stdout else ""
+            # Cancel any remaining tasks
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+
+            raise
+
+        except Exception as e:
+            error_lines = [str(e)]
+            if hasattr(e, "__context__") and e.__context__:
+                error_lines.append(f"Caused by: {str(e.__context__)}")
+            error_msg = "\n".join(error_lines)
+
+            return [
+                TextContent(
+                    type="text", text=f"Error during make execution: {error_msg}"
+                )
+            ]
 
         if proc.returncode != 0:
             return [
@@ -154,7 +194,12 @@ async def serve(
         """
         raise McpError(INVALID_PARAMS, f"Unknown prompt: {name}")
 
-    options = server.create_initialization_options()
-    async with stdio_server() as streams:
-        read_stream, write_stream = streams
-        await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    try:
+        options = server.create_initialization_options()
+        async with stdio_server() as streams:
+            read_stream, write_stream = streams
+            await server.run(read_stream, write_stream, options, raise_exceptions=True)
+    except Exception as e:
+        print(f"Server error: {str(e)}", file=sys.stderr)
+        # Use a clean exit to avoid unhandled exception messages
+        sys.exit(1)
