@@ -118,6 +118,34 @@ class MakeServer(Server):
                 current_comment = []
         return targets
 
+    async def run_make_target(self, target: str, timeout: int) -> str:
+        """Run a Make target with safety controls."""
+        if not VALID_TARGET_PATTERN.match(target):
+            raise ValueError(f"Invalid target name: {target}")
+
+        original_cwd = Path.cwd()
+        try:
+            # Change to Makefile directory
+            os.chdir(str(self.makefile_dir))
+
+            proc = await asyncio.create_subprocess_exec(
+                "make",
+                target,
+                env=get_safe_environment(),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            if proc.returncode != 0:
+                error_msg = stderr.decode().strip()
+                raise MakefileError(f"Target execution failed: {error_msg}")
+            return stdout.decode()
+        except asyncio.TimeoutError:
+            raise MakefileError(f"Target execution exceeded {timeout}s timeout")
+        finally:
+            # Restore original working directory
+            os.chdir(str(original_cwd))
+
     async def _list_resources(self) -> List[Resource]:
         """List available Make-related resources."""
         try:
@@ -180,33 +208,44 @@ class MakeServer(Server):
         """Read Make-related resource content."""
         return self._read_resource
 
-    async def run_make_target(self, target: str, timeout: int) -> str:
-        """Run a Make target with safety controls."""
-        if not VALID_TARGET_PATTERN.match(target):
-            raise ValueError(f"Invalid target name: {target}")
+    async def _call_tool(self, name: str, arguments: dict | None) -> list[TextContent]:
+        """Execute a Make-related tool."""
+        if not arguments:
+            raise ValueError("Tool arguments required")
 
-        original_cwd = Path.cwd()
-        try:
-            # Change to Makefile directory
-            os.chdir(str(self.makefile_dir))
+        if name == "list-targets":
+            pattern = arguments.get("pattern", "*")
+            targets = await self.parse_makefile_targets()
+            if pattern != "*":
+                try:
+                    pattern_re = re.compile(pattern)
+                    targets = [t for t in targets if pattern_re.search(t["name"])]
+                except re.error:
+                    raise ValueError(f"Invalid pattern: {pattern}")
+            return [
+                TextContent(
+                    type="text",
+                    text="\n".join(
+                        f"{t['name']}: {t['description'] or 'No description'}"
+                        for t in targets
+                    ),
+                )
+            ]
 
-            proc = await asyncio.create_subprocess_exec(
-                "make",
-                target,
-                env=get_safe_environment(),
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-            if proc.returncode != 0:
-                error_msg = stderr.decode().strip()
-                raise MakefileError(f"Target execution failed: {error_msg}")
-            return stdout.decode()
-        except asyncio.TimeoutError:
-            raise MakefileError(f"Target execution exceeded {timeout}s timeout")
-        finally:
-            # Restore original working directory
-            os.chdir(str(original_cwd))
+        elif name == "run-target":
+            if "target" not in arguments:
+                raise ValueError("Target name required")
+            target = arguments["target"]
+            timeout = min(int(arguments.get("timeout", 300)), 3600)
+            output = await self.run_make_target(target, timeout)
+            return [TextContent(type="text", text=output)]
+
+        raise ValueError(f"Unknown tool: {name}")
+
+    @property
+    def call_tool(self) -> Any:
+        """Execute a Make-related tool."""
+        return self._call_tool
 
     @classmethod
     async def list_tools(cls) -> List[Tool]:
@@ -247,45 +286,6 @@ class MakeServer(Server):
                 },
             ),
         ]
-
-    async def _call_tool(self, name: str, arguments: dict | None) -> list[TextContent]:
-        """Execute a Make-related tool."""
-        if not arguments:
-            raise ValueError("Tool arguments required")
-
-        if name == "list-targets":
-            pattern = arguments.get("pattern", "*")
-            targets = await self.parse_makefile_targets()
-            if pattern != "*":
-                try:
-                    pattern_re = re.compile(pattern)
-                    targets = [t for t in targets if pattern_re.search(t["name"])]
-                except re.error:
-                    raise ValueError(f"Invalid pattern: {pattern}")
-            return [
-                TextContent(
-                    type="text",
-                    text="\n".join(
-                        f"{t['name']}: {t['description'] or 'No description'}"
-                        for t in targets
-                    ),
-                )
-            ]
-
-        elif name == "run-target":
-            if "target" not in arguments:
-                raise ValueError("Target name required")
-            target = arguments["target"]
-            timeout = min(int(arguments.get("timeout", 300)), 3600)
-            output = await self.run_make_target(target, timeout)
-            return [TextContent(type="text", text=output)]
-
-        raise ValueError(f"Unknown tool: {name}")
-
-    @property
-    def call_tool(self) -> Any:
-        """Execute a Make-related tool."""
-        return self._call_tool
 
 
 async def serve(makefile_dir: str | Path | None = None) -> None:
