@@ -9,6 +9,7 @@ from mcp.shared.exceptions import McpError
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import (
+    ErrorData,
     GetPromptResult,
     Prompt,
     TextContent,
@@ -37,7 +38,7 @@ async def serve(
         McpError: If the Makefile cannot be found at the specified path
         Exception: For other unexpected errors during server operation
     """
-    server = Server("mcp-make")
+    server: Server = Server("mcp-make")
 
     # Set working directory
     if working_dir:
@@ -46,7 +47,9 @@ async def serve(
     # Set make path
     make_path = make_path or "Makefile"
     if not os.path.exists(make_path):
-        raise McpError(INVALID_PARAMS, f"Makefile not found at {make_path}")
+        raise McpError(
+            ErrorData(code=INVALID_PARAMS, message=f"Makefile not found at {make_path}")
+        )
 
     @server.list_tools()
     async def list_tools() -> List[Tool]:
@@ -152,7 +155,9 @@ async def serve(
         Raises:
             McpError: Always raises as no prompts are currently supported
         """
-        raise McpError(INVALID_PARAMS, f"Unknown prompt: {name}")
+        raise McpError(
+            ErrorData(code=INVALID_PARAMS, message=f"Unknown prompt: {name}")
+        )
 
     options = server.create_initialization_options()
     async with stdio_server() as streams:
