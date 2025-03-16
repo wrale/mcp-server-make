@@ -6,6 +6,10 @@
 
 A Model Context Protocol server that provides make functionality. This server enables LLMs to execute make targets from a Makefile in a safe, controlled way.
 
+<a href="https://glama.ai/mcp/servers/g8rwy0077w">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/g8rwy0077w/badge" alt="Server Make MCP server" />
+</a>
+
 ## Overview
 
 The server exposes make functionality through the Model Context Protocol, allowing LLMs like Claude to:
