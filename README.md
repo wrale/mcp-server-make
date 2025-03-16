@@ -153,13 +153,7 @@ Common issues:
 
 ## Contributing
 
-We welcome contributions to improve mcp-server-make! Here's how:
-
-1. Fork the repository
-2. Create your feature branch
-3. Make your changes
-4. Run full validation: `make check`
-5. Submit a pull request
+We welcome contributions to improve mcp-server-make! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions on setting up your development environment, using the project tools, and submitting changes.
 
 ## License
 
