@@ -4,7 +4,7 @@
 [![Release](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml/badge.svg)](https://github.com/wrale/mcp-server-make/actions/workflows/release.yml)
 [![PyPI version](https://badge.fury.io/py/mcp-server-make.svg)](https://badge.fury.io/py/mcp-server-make)
 
-A Model Context Protocol server that provides make functionality. This server enables LLMs to execute make targets from a Makefile in a safe, controlled way.
+A Model Context Protocol server that provides make functionality. This server enables LLMs to execute make targets from any Makefile in a safe, controlled way.
 
 <a href="https://glama.ai/mcp/servers/g8rwy0077w">
   <img width="380" height="200" src="https://glama.ai/mcp/servers/g8rwy0077w/badge" alt="Server Make MCP server" />
@@ -19,7 +19,11 @@ The server exposes make functionality through the Model Context Protocol, allowi
 - Handle errors appropriately
 - Respect working directory context
 
-## Installation
+MCP Server Make works with any valid Makefile - you can use the included opinionated Makefile or your own custom build scripts.
+
+## Quick Start
+
+### Installation
 
 Using `uv` (recommended):
 ```bash
@@ -30,8 +34,6 @@ Using pip:
 ```bash
 pip install mcp-server-make
 ```
-
-## Configuration
 
 ### Basic Usage
 ```bash
@@ -61,6 +63,13 @@ To use with Claude Desktop, add to your Claude configuration (`claude_desktop_co
 }
 ```
 
+## Documentation
+
+For detailed information about using MCP Server Make, please see our documentation:
+
+- [User Guide](docs/user_guide.md) - Complete guide to installation, configuration, and usage
+- [Custom Makefiles](docs/custom_makefiles.md) - Creating effective Makefiles for use with MCP Server Make
+
 ## Enhancing Development Workflows
 
 This server enables powerful development workflows by giving LLMs direct access to make functionality:
@@ -71,55 +80,39 @@ This server enables powerful development workflows by giving LLMs direct access 
    - Let Claude run and interpret test results 
    - Get build system suggestions and improvements
    - Automate repetitive development tasks
-   - Get immediate feedback on changes
 
 2. **Project Management**
    - Let Claude handle dependency updates
    - Automate release processes
    - Maintain consistent code quality
-   - Track project status
 
-### For Claude
+### Working with Make Targets
 
-1. **Self-Validation Capabilities**
-   - Run tests to verify changes: `make test`
-   - Check code quality: `make lint`
-   - Format code: `make format`
-   - Full validation: `make check`
+MCP Server Make does not automatically discover available targets in your Makefile. To effectively use it with Claude:
 
-2. **Project Understanding**
-   - View project structure: `make x`
-   - Check recent changes: `make z`
-   - Full context snapshot: `make r`
+1. **Start with `make help`**: Most well-designed Makefiles include a help target
 
-3. **Independent Development**
-   - Manage complete development cycles
-   - Self-contained testing and validation
-   - Build and prepare releases
-   - Generate informed commit messages
+   ```
+   Human: Please run make help to see what commands are available.
+   ```
 
-## Available Tools
+2. **Tell Claude about your targets**: Explicitly mention available targets and their purpose
 
-The server exposes a single tool:
+   ```
+   Human: Our project has these make targets: test, lint, format, build, and clean.
+   ```
 
-- `make` - Run a make target from the Makefile
-    - `target` (string, required): Target name to execute
+3. **Use standard conventions**: Common targets that many Makefiles include:
 
-## Error Handling
+   - `make test` - Run tests
+   - `make lint` - Check code quality 
+   - `make format` - Format code
+   - `make build` - Build the project
+   - `make clean` - Clean build artifacts
 
-The server handles common errors gracefully:
-- Missing Makefile
-- Invalid working directory
-- Failed make commands
-- Invalid targets
+The repository includes an opinionated Makefile with additional utility targets - see the [User Guide](docs/user_guide.md) for details on these extended capabilities or for creating your own custom targets.
 
-All errors are returned with descriptive messages through the MCP protocol.
-
-## Working Directory Behavior
-
-- If `--working-dir` is specified, changes to that directory before executing make
-- If omitted, uses the directory containing the Makefile
-- Always restores original working directory after execution
+> **Note**: Claude doesn't remember available targets between conversations. You'll need to introduce them at the start of each conversation.
 
 ## Example Integration
 
@@ -142,14 +135,12 @@ Running tests...
 All formatting and tests completed successfully. The code is now properly formatted and all tests are passing.
 ```
 
-## Troubleshooting
+## Available Tools
 
-Common issues:
+The server exposes a single tool:
 
-1. **"Makefile not found"**: Verify the --make-path points to a valid Makefile
-2. **"Working directory error"**: Ensure --working-dir exists and is accessible
-3. **"Tool execution failed"**: Check make target exists and command succeeds
-4. **"Permission denied"**: Verify file and directory permissions
+- `make` - Run a make target from the Makefile
+    - `target` (string, required): Target name to execute
 
 ## Contributing
 
