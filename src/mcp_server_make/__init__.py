@@ -22,8 +22,12 @@ def main() -> NoReturn:
     parser = argparse.ArgumentParser(
         description="give a model the ability to run make commands"
     )
-    parser.add_argument("--make-path", type=str, default="Makefile", help="Path to makefile")
-    parser.add_argument("--working-dir", type=str, default=str(Path.cwd()), help="Working directory")
+    parser.add_argument(
+        "--make-path", type=str, default="Makefile", help="Path to makefile"
+    )
+    parser.add_argument(
+        "--working-dir", type=str, default=str(Path.cwd()), help="Working directory"
+    )
 
     args = parser.parse_args()
     try:

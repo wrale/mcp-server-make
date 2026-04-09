@@ -25,7 +25,7 @@ class Make(BaseModel):
     target: str = Field(description="Make target to run")
     args: List[str] = Field(
         default_factory=list,
-        description="List of command line arguments (e.g. VAR=value)"
+        description="List of command line arguments (e.g. VAR=value)",
     )
 
 
