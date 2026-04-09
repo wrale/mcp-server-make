@@ -23,6 +23,10 @@ class Make(BaseModel):
     """Parameters for running make."""
 
     target: str = Field(description="Make target to run")
+    args: List[str] = Field(
+        default_factory=list,
+        description="List of command line arguments (e.g. VAR=value)"
+    )
 
 
 async def serve(
@@ -81,17 +85,17 @@ async def serve(
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
         try:
-            args = Make(**arguments)
+            make_args = Make(**arguments)
         except Exception as e:
             return [TextContent(type="text", text=f"Invalid arguments: {str(e)}")]
 
         try:
             # Run make command
+            cmd = ["make", "-f", make_path, make_args.target]
+            cmd.extend(make_args.args)
+
             proc = await asyncio.create_subprocess_exec(
-                "make",
-                "-f",
-                make_path,
-                args.target,
+                *cmd,
                 stdout=PIPE,
                 stderr=PIPE,
                 # Ensure proper error propagation from child process
